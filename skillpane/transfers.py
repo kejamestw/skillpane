@@ -9,7 +9,7 @@ from uuid import uuid4
 from .library import signature
 from .storage import (MAX_BYTES, clone, now, pair_key, validate_annotation,
                       validate_comparison, validate_identity, validate_keep,
-                      validate_state, valid_id, valid_time)
+                      validate_state, valid_id, valid_time, strict_json_loads)
 
 
 def portable_identity(identity):
@@ -242,7 +242,7 @@ class Transfers:
             if path.stat().st_size > MAX_BYTES:
                 raise ValueError('備份超過大小上限。')
             try:
-                value = json.loads(path.read_text(encoding='utf-8'))
+                value = strict_json_loads(path.read_text(encoding='utf-8'))
             except (ValueError, UnicodeError):
                 raise ValueError('這份備份已損壞，未修改現有資料。') from None
             if isinstance(value, dict) and value.get('format') == 'skillpane-state':

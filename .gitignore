@@ -10,3 +10,9 @@ __pycache__/
 Thumbs.db
 coverage.xml
 .coverage
+skillpane-backup-*.json
+*gitleaks*.json
+*.pem
+*.key
+*.p12
+*.pfx

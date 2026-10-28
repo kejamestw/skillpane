@@ -4,6 +4,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from hashlib import sha256
 import json
+import os
 from pathlib import Path
 import re
 import shutil
@@ -17,6 +18,24 @@ DECISIONS = {'keep-both', 'consider-merge', 'checked'}
 TEXT_LIMITS = {'note': 4000, 'alias': 100, 'summary': 600, 'category': 40,
                'origin_reason': 1000, 'source_url': 2048, 'scope_note': 600}
 SOURCES = {'personal', 'managed', 'system', 'plugin', 'unknown'}
+
+
+def strict_json_loads(text):
+    def unique(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError('JSON 不可包含重複欄位。')
+            result[key] = value
+        return result
+
+    def constant(_):
+        raise ValueError('JSON 不可包含非有限數值。')
+
+    try:
+        return json.loads(text, object_pairs_hook=unique, parse_constant=constant)
+    except RecursionError:
+        raise ValueError('JSON 巢狀層級過深。') from None
 
 
 def now():
@@ -169,7 +188,7 @@ class Annotations:
                 self.disk_digest = file_digest(self.path)
                 if self.path.stat().st_size > MAX_BYTES:
                     raise ValueError('本機整理資料超過大小上限。')
-                value = json.loads(self.path.read_text(encoding='utf-8'))
+                value = strict_json_loads(self.path.read_text(encoding='utf-8'))
                 if isinstance(value, dict) and value.get('format') == 'skillpane-state':
                     validate_state(value)
                     self.state = value
@@ -195,9 +214,11 @@ class Annotations:
         directory = self.directory if child is None else self.directory / child
         if directory.resolve() != directory:
             raise ValueError('本機資料目錄已變更，停止操作。')
-        directory.mkdir(parents=True, exist_ok=True)
+        directory.mkdir(mode=0o700, parents=True, exist_ok=True)
         if directory.resolve() != directory:
             raise ValueError('本機資料目錄已變更，停止操作。')
+        if os.name == 'posix':
+            directory.chmod(0o700)
         return directory
 
     def commit(self, next_state, *, recovery=False):
@@ -220,8 +241,11 @@ class Annotations:
                 directory = self.safe_directory('backups')
                 backup = directory / f'{datetime.now(timezone.utc):%Y%m%dT%H%M%S}-{uuid4().hex}.json'
                 shutil.copy2(self.path, backup)
+                if os.name == 'posix':
+                    backup.chmod(0o600)
             temporary = self.directory / f'annotations-{uuid4().hex}.tmp'
-            with temporary.open('x', encoding='utf-8', newline='\n') as stream:
+            descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, 'O_BINARY', 0), 0o600)
+            with os.fdopen(descriptor, 'w', encoding='utf-8', newline='\n') as stream:
                 stream.write(content)
                 stream.flush()
             temporary.replace(self.path)

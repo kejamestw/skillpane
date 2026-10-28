@@ -1,0 +1,33 @@
+name: 問題回報 / Bug report
+description: 使用合成資料描述錯誤，請勿附上真實技能、筆記或憑證。
+body:
+  - type: markdown
+    attributes:
+      value: '安全漏洞請先閱讀 SECURITY.md，勿公開漏洞細節、真實技能內容、完整路徑、.data 或 .runtime。'
+  - type: input
+    id: environment
+    attributes:
+      label: 版本與環境
+      description: Skillpane 版本、作業系統、Python 與瀏覽器版本即可。
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 重現步驟
+      description: 請以自行建立的合成技能重現。
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 預期與實際結果
+    validations:
+      required: true
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: 資料檢查
+      options:
+        - label: 我已移除憑證、個人筆記、技能原文、本機路徑與可辨識的工作資訊。
+          required: true

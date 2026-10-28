@@ -8,7 +8,7 @@ from urllib.parse import parse_qs, urlsplit
 
 from . import __version__
 from .catalog import Catalog
-from .storage import Annotations
+from .storage import Annotations, strict_json_loads
 from .library import Library
 from .transfers import Transfers
 
@@ -64,6 +64,9 @@ class Handler(BaseHTTPRequestHandler):
         if hosts != [self.server.origin.removeprefix('http://')]:
             self.json({'error': '拒絕不受信任的 Host。'}, 403)
             return False
+        if any(len(self.headers.get_all(header, [])) > 1 for header in ('Origin', 'Sec-Fetch-Site', 'Content-Length', 'Content-Type', 'X-Skillpane-Client')):
+            self.json({'error': '拒絕重複的請求標頭。'}, 403)
+            return False
         origin = self.headers.get('Origin')
         if origin is not None and origin != self.server.origin:
             self.json({'error': '拒絕跨來源請求。'}, 403)
@@ -77,6 +80,18 @@ class Handler(BaseHTTPRequestHandler):
             self.json({'error': '整理操作必須由本機面板送出。'}, 403)
             return False
         return True
+
+    def target(self):
+        try:
+            if not self.path.startswith('/') or self.path.startswith('//'):
+                raise ValueError()
+            url = urlsplit(self.path)
+            if url.scheme or url.netloc or url.fragment:
+                raise ValueError()
+            return url
+        except ValueError:
+            self.json({'error': '請求網址格式錯誤。'}, 400)
+            return None
 
     def json(self, value, status=200):
         self.respond(json.dumps(value, ensure_ascii=False).encode('utf-8'), 'application/json; charset=utf-8', status)
@@ -101,7 +116,9 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if not self.trusted():
             return
-        url = urlsplit(self.path)
+        url = self.target()
+        if url is None:
+            return
         if url.path == '/api/health':
             self.json({'app': 'skillpane', 'version': __version__, 'skill_files_readonly': True})
         elif url.path == '/api/state':
@@ -151,12 +168,17 @@ class Handler(BaseHTTPRequestHandler):
     def body(self, maximum=24000):
         if self.headers.get('Transfer-Encoding'):
             raise ValueError('不支援分塊請求。')
-        length = int(self.headers.get('Content-Length', '0'))
+        lengths = self.headers.get_all('Content-Length', [])
+        if len(lengths) != 1 or not lengths[0].isascii() or not lengths[0].isdecimal():
+            raise ValueError('請求長度格式錯誤。')
+        length = int(lengths[0])
         if not 0 < length <= maximum:
             raise ValueError('請求大小不正確。')
         raw = self.rfile.read(length)
         self._body_consumed = True
-        payload = json.loads(raw.decode('utf-8'))
+        if len(raw) != length:
+            raise ValueError('請求內容不完整。')
+        payload = strict_json_loads(raw.decode('utf-8'))
         if not isinstance(payload, dict):
             raise ValueError('請求必須是 JSON 物件。')
         return payload
@@ -164,7 +186,10 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         if not self.trusted(write=True):
             return
-        route = urlsplit(self.path).path
+        url = self.target()
+        if url is None:
+            return
+        route = url.path
         actions = {
             '/api/import/preview': self.server.transfers.preview_import,
             '/api/import/apply': self.server.transfers.apply_import,
@@ -198,7 +223,9 @@ class Handler(BaseHTTPRequestHandler):
     def do_PATCH(self):
         if not self.trusted(write=True):
             return
-        url = urlsplit(self.path)
+        url = self.target()
+        if url is None:
+            return
         if url.path != '/api/annotation':
             self.json({'error': '技能本體維持唯讀。'}, 405)
             return

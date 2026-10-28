@@ -1,12 +1,21 @@
 # Skillpane
 
+[English](README.en.md) · [操作手冊](docs/USER_GUIDE.md) · [疑難排解](SUPPORT.md) · [安全政策](SECURITY.md) · [更新紀錄](CHANGELOG.md)
+
 繁體中文優先的本機 Agent Skills 技能庫。理解每個技能的用途與呼叫方式，把個人技能、工具管理內容與外掛快取分開整理。
 
 以 Apple 介面設計的層次、排版與互動原則規劃，使用系統字型、側欄／列表／詳情三欄結構、深淺主題、鍵盤搜尋與減少動態效果支援。
 
 ## 開始使用
 
-需要 Python 3.10 以上，沒有第三方 Python／JavaScript 執行相依套件，也不需要 Node 建置。
+建議使用仍在官方安全支援期內的 Python 3.11 以上版本；專案不需第三方 Python／JavaScript 執行相依套件，也不需要 Node 建置。目前是早期版本，主要介面為繁體中文，尚無語言切換。
+
+```sh
+git clone https://github.com/kejamestw/skillpane.git
+cd skillpane
+```
+
+Repository 尚為私人時需要帳號存取權；不要將 token 放進 clone 網址。
 
 ```sh
 python -m skillpane
@@ -41,6 +50,8 @@ Windows 可雙擊 `Open-Skillpane.cmd`。啟動器優先使用 `SKILLPANE_PYTHON
 HTTP 服務僅監聽 `127.0.0.1`，檢查 Host、Origin 與 Fetch Metadata。整理資料寫入另要求同源 JSON 與自訂 header，不提供 CORS。靜態資源使用允許清單；內容 API 只接受掃描過的技能 ID。單一 skill 大小上限為 2 MiB。
 
 這是本機個人工具，沒有登入系統；同一位作業系統使用者的其他程式仍能讀取本機服務。不要將服務對外轉送。
+
+公開原始碼與將服務部署到網路是不同情境。此服務以 Python `http.server` 為基礎，僅設計供本機個人使用，不支援共享主機、公開網路、反向代理或 tunnel。安全邊界與已知限制見 [安全政策](SECURITY.md)；匯出檔案仍可能包含名稱、描述或個人筆記中的敏感內容，詳見 [資料隱私](docs/PRIVACY.md)。
 
 ### 數量的定義
 
@@ -81,6 +92,8 @@ node --check web/management.js
 
 Windows junction 測試需允許建立工作目錄內的 junction；其他平台會略過該項。測試只使用 `.runtime/test-runs/` 內的假資料。Node 僅用於可選的語法檢查。
 
+GitHub Actions 設定包含 Windows／Linux、Python 3.11／3.13 的單元與安全測試、JavaScript 語法檢查、Git 私有路徑檢查及全歷史 Gitleaks 掃描。這些自動檢查須推送後才會執行；流程與公開前檢查方式見 [開發指南](docs/DEVELOPMENT.md)。
+
 瀏覽器回歸驗證使用獨立服務，避免操作真實筆記：
 
 ```sh
@@ -99,3 +112,7 @@ node --check tests/browser-regression.js
 Skillpane 是以 [oh-my-skills](https://github.com/AIjunja/oh-my-skills) 為起點的獨立衍生專案。早期 frontmatter 解析參考上游，現已改用獨立欄位判讀器；掃描分類、HTTP 服務、整理資料儲存與前端也經重新設計。詳細來源與保留的上游 MIT 聲明見 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
 MIT License。
+
+## 參與與支援
+
+請先閱讀 [貢獻指南](CONTRIBUTING.md) 與 [支援說明](SUPPORT.md)。回報使用合成資料，不上傳真實技能、`.data/`、`.runtime/` 或工作環境截圖。安全問題依 [SECURITY.md](SECURITY.md) 私下回報。

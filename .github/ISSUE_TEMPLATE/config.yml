@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 安全漏洞回報方式
+    url: https://github.com/kejamestw/skillpane/blob/main/SECURITY.md
+    about: 先確認私下回報管道，請勿在公開 Issue 貼漏洞細節。

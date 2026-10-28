@@ -164,6 +164,8 @@ class Library:
         executable = shutil.which('git')
         if executable:
             environment = {k: v for k, v in os.environ.items() if not k.startswith('GIT_')}
+            environment.update(GIT_NO_LAZY_FETCH='1', GIT_TERMINAL_PROMPT='0',
+                               GIT_CONFIG_NOSYSTEM='1', GIT_CONFIG_GLOBAL=os.devnull)
             try:
                 process = subprocess.run([executable, '--no-pager', '-c', 'core.fsmonitor=false', '-c', 'log.showSignature=false',
                                           '-C', str(path.parent), 'log', '--no-ext-diff', '--no-textconv', '--follow',
