@@ -1,0 +1,190 @@
+"""Loopback-only application. The only disk writes are local annotations."""
+from __future__ import annotations
+import argparse
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import json
+from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
+
+from . import __version__
+from .catalog import Catalog
+from .storage import Annotations
+
+PROJECT = Path(__file__).resolve().parent.parent
+ASSETS = {'/': ('index.html', 'text/html; charset=utf-8'),
+          '/app.js': ('app.js', 'text/javascript; charset=utf-8'),
+          '/styles.css': ('styles.css', 'text/css; charset=utf-8'),
+          '/favicon.svg': ('favicon.svg', 'image/svg+xml')}
+
+
+class AppServer(ThreadingHTTPServer):
+    daemon_threads = True
+
+    def __init__(self, port=8766, home=None, state_dir=None, host='127.0.0.1'):
+        if host != '127.0.0.1':
+            raise ValueError('Skillpane 僅允許 127.0.0.1 本機連線。')
+        home = Path.home() if home is None else Path(home)
+        directory = PROJECT / '.data' if state_dir is None else Path(state_dir)
+        # Refuse annotation storage anywhere inside a skill root.
+        from .catalog import roots, within
+        if within(directory.resolve(), [p.resolve() for p in roots(home)]):
+            raise ValueError('整理資料不可放在技能目錄內。')
+        self.catalog = Catalog(home)
+        self.annotations = Annotations(directory)
+        super().__init__((host, port), Handler)
+        self.origin = f'http://127.0.0.1:{self.server_address[1]}'
+
+
+class Handler(BaseHTTPRequestHandler):
+    server_version = 'Skillpane/0.1'
+
+    def setup(self):
+        super().setup()
+        self.connection.settimeout(20)
+
+    def end_headers(self):
+        self.send_header('Cache-Control', 'no-store')
+        self.send_header('X-Content-Type-Options', 'nosniff')
+        self.send_header('X-Frame-Options', 'DENY')
+        self.send_header('Referrer-Policy', 'no-referrer')
+        self.send_header('Cross-Origin-Resource-Policy', 'same-origin')
+        self.send_header('Content-Security-Policy',
+                         "default-src 'none'; script-src 'self'; style-src 'self'; "
+                         "connect-src 'self'; img-src 'self' data:; font-src 'self'; "
+                         "frame-ancestors 'none'; base-uri 'none'; form-action 'none'; object-src 'none'")
+        super().end_headers()
+
+    def trusted(self, write=False):
+        hosts = self.headers.get_all('Host', [])
+        if hosts != [self.server.origin.removeprefix('http://')]:
+            self.json({'error': '拒絕不受信任的 Host。'}, 403)
+            return False
+        origin = self.headers.get('Origin')
+        if origin is not None and origin != self.server.origin:
+            self.json({'error': '拒絕跨來源請求。'}, 403)
+            return False
+        site = self.headers.get('Sec-Fetch-Site')
+        if site is not None and site not in {'same-origin', 'none'}:
+            self.json({'error': '拒絕跨站請求。'}, 403)
+            return False
+        if write and (origin != self.server.origin or self.headers.get('X-Skillpane-Client') != '1'
+                      or self.headers.get_content_type() != 'application/json'):
+            self.json({'error': '整理操作必須由本機面板送出。'}, 403)
+            return False
+        return True
+
+    def json(self, value, status=200):
+        self.respond(json.dumps(value, ensure_ascii=False).encode('utf-8'), 'application/json; charset=utf-8', status)
+
+    def respond(self, body, content_type, status=200):
+        # Drain a bounded request body before closing HTTP/1.0 connections.
+        # Windows can otherwise reset the socket before the client sees a 405.
+        if not getattr(self, '_body_consumed', False) and not self.headers.get('Transfer-Encoding'):
+            try:
+                length = int(self.headers.get('Content-Length', '0'))
+            except ValueError:
+                length = 0
+            if 0 < length <= 24000:
+                self.rfile.read(length)
+            self._body_consumed = True
+        self.send_response(status)
+        self.send_header('Content-Type', content_type)
+        self.send_header('Content-Length', str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_GET(self):
+        if not self.trusted():
+            return
+        url = urlsplit(self.path)
+        if url.path == '/api/health':
+            self.json({'app': 'skillpane', 'version': __version__, 'skill_files_readonly': True})
+        elif url.path == '/api/state':
+            self.json({**self.server.catalog.snapshot(), 'annotations': self.server.annotations.snapshot()})
+        elif url.path == '/api/skill':
+            try:
+                skill_id = parse_qs(url.query).get('id', [''])[0]
+                self.json({'content': self.server.catalog.content(skill_id)})
+            except (KeyError, OSError, ValueError, RuntimeError):
+                self.json({'error': '無法讀取技能內容，請重新掃描。'}, 404)
+        elif url.path == '/api/export':
+            snapshot = self.server.catalog.snapshot()
+            # Export metadata only, never skill bodies or absolute source paths.
+            for entry in snapshot['skills']:
+                entry.pop('path', None)
+                entry.pop('aliases', None)
+                entry.pop('versions', None)
+            self.json(snapshot)
+        elif url.path in ASSETS:
+            name, mime = ASSETS[url.path]
+            self.respond((PROJECT / 'web' / name).read_bytes(), mime)
+        else:
+            self.json({'error': '找不到這個資源。'}, 404)
+
+    def body(self):
+        if self.headers.get('Transfer-Encoding'):
+            raise ValueError('不支援分塊請求。')
+        length = int(self.headers.get('Content-Length', '0'))
+        if not 0 < length <= 24000:
+            raise ValueError('請求大小不正確。')
+        raw = self.rfile.read(length)
+        self._body_consumed = True
+        payload = json.loads(raw.decode('utf-8'))
+        if not isinstance(payload, dict):
+            raise ValueError('請求必須是 JSON 物件。')
+        return payload
+
+    def do_POST(self):
+        if not self.trusted(write=True):
+            return
+        if urlsplit(self.path).path != '/api/rescan':
+            self.json({'error': '技能本體維持唯讀。'}, 405)
+            return
+        try:
+            self.body()
+            self.server.catalog.refresh()
+            self.json({**self.server.catalog.snapshot(), 'annotations': self.server.annotations.snapshot()})
+        except (ValueError, OSError, UnicodeError):
+            self.json({'error': '重新掃描失敗，原有清單仍可使用。'}, 400)
+
+    def do_PATCH(self):
+        if not self.trusted(write=True):
+            return
+        url = urlsplit(self.path)
+        if url.path != '/api/annotation':
+            self.json({'error': '技能本體維持唯讀。'}, 405)
+            return
+        skill_id = parse_qs(url.query).get('id', [''])[0]
+        if skill_id not in self.server.catalog.by_id:
+            self.json({'error': '找不到要整理的技能。'}, 404)
+            return
+        try:
+            self.json(self.server.annotations.update(skill_id, self.body()))
+        except (ValueError, OSError, UnicodeError, TypeError):
+            self.json({'error': '無法儲存整理資料，請檢查欄位與本機資料目錄。'}, 400)
+
+    def deny(self):
+        if self.trusted():
+            self.json({'error': '技能本體維持唯讀。'}, 405)
+        self.close_connection = True
+
+    do_PUT = deny
+    do_DELETE = deny
+    do_OPTIONS = deny
+
+    def log_message(self, *_):
+        pass
+
+
+def main():
+    parser = argparse.ArgumentParser(description='Skillpane 本機技能庫')
+    parser.add_argument('--port', type=int, default=8766)
+    args = parser.parse_args()
+    server = AppServer(port=args.port)
+    print(f'Skillpane {__version__} is ready at {server.origin}', flush=True)
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        server.server_close()
