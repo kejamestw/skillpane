@@ -17,7 +17,7 @@ class ServerTests(unittest.TestCase):
         cls.server = AppServer(port=0, home=base / 'home', state_dir=base / 'state')
         cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
         cls.thread.start()
-        cls.skill_id = cls.server.catalog.snapshot()['skills'][0]['id']
+        cls.skill_id = cls.server.library.snapshot()['skills'][0]['id']
 
     @classmethod
     def tearDownClass(cls):
@@ -82,6 +82,9 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(code,200)
         self.assertNotIn('path',entry)
         self.assertNotIn('aliases',entry)
+        self.assertNotIn('source',entry['invocation']['codex'])
+        self.assertNotIn('roots',json.loads(body)['scan_scope'])
+        self.assertIn('source',self.server.catalog.snapshot()['skills'][0]['invocation']['codex'])
         self.assertNotIn(b'Original synthetic skill',body)
 
     def test_rescan_requires_trusted_request(self):

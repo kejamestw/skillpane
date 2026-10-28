@@ -1,3 +1,5 @@
+import {customize, organizationHtml, historyHtml, loadSourceEvidence, initializeManagement} from './management.js';
+
 const paths = {
   grid:'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z',
   star:'m12 3 2.8 5.7 6.3.9-4.6 4.4 1.1 6.3-5.6-3-5.6 3 1.1-6.3L3 9.6l6.2-.9Z',
@@ -31,7 +33,8 @@ const views = {
   favorites:['收藏','把常用的工作方式，放在伸手就能找到的地方。'],
   review:['待整理','慢慢釐清用途與分工，每次整理一點。'],
   other:['內建與外掛','分開看系統、同步內容與外掛，讓個人技能保持清楚。'],
-  overlaps:['重疊檢查','了解相同與相近之處，再決定如何整理。'],
+  overlaps:['重疊檢查','比較同名或內容相同的技能。'],
+  related:['相關工具','依分類查看工具分工，不代表重複或需要淘汰。'],
 };
 const state = {data:null, view:'personal', filter:'全部', query:'', selected:null, tab:'guide', sort:'name',
   content:new Map(), drafts:new Map(), busy:new Set(), theme:localStorage.getItem('skillpane-theme') || 'system'};
@@ -69,27 +72,32 @@ async function api(url, options={}) {
   return payload;
 }
 
+function allSkills() { return (state.data?.skills || []).map(skill=>customize(skill,state.data.annotations[skill.id] || {})); }
 function annotations(skill) { return state.data.annotations[skill.id] || {}; }
 function needsReview(skill) { return skill.warnings.length > 0 || ['review','merge','archive'].includes(annotations(skill).status); }
 function categoryIcon(skill) { return ({'設計與動畫':'spark','維運與資料':'database','文件與簡報':'file','開發工具':'code'})[skill.category] || 'grid'; }
 function displayedTime(iso) { return new Intl.DateTimeFormat('zh-TW',{timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(iso)); }
 
 function renderSummary() {
-  const {stats,skills,overlaps} = state.data;
+  const {stats,skills,overlaps,related_groups} = state.data;
+  $('#storageAlert').hidden=!state.data.storage_error;
+  $('#storageAlertText').textContent=state.data.storage_error || '';
+  $('#compareButton').disabled=skills.length<2;
   $('#personalCount').textContent = stats.personal;
   $('#otherCount').textContent = stats.system + stats.managed + stats.plugin;
   $('#overlapCount').textContent = overlaps.length;
-  $('#otherHint').textContent = stats.extra_versions ? `已收合 ${stats.extra_versions} 份額外快取版本` : '系統、同步內容與外掛';
+  $('#otherSummary').title = stats.extra_versions ? `已收合 ${stats.extra_versions} 份額外快取版本` : '系統、同步內容與外掛';
   const counts = {personal:stats.personal, other:stats.system+stats.managed+stats.plugin,
     favorites:skills.filter(s => annotations(s).favorite).length,
-    review:skills.filter(needsReview).length, overlaps:overlaps.length};
+    review:skills.filter(needsReview).length, overlaps:overlaps.length, related:related_groups.length};
   Object.entries(counts).forEach(([key,value]) => document.querySelectorAll(`[data-count="${key}"]`).forEach(el => { el.textContent=value; }));
+  $('#scopeRoots').replaceChildren(...state.data.scan_scope.roots.map(path=>{const li=document.createElement('li');li.textContent=path;return li;}));
   $('#scanTime').textContent = `掃描於 ${displayedTime(state.data.generated_at)} · 台灣時間`;
 }
 
 function baseSkills() {
-  const all = state.data?.skills || [];
-  if (state.view === 'personal') return all.filter(s => s.source === 'personal');
+  const all = allSkills();
+  if (['personal','related'].includes(state.view)) return all.filter(s => s.source === 'personal');
   if (state.view === 'other') return all.filter(s => s.source !== 'personal');
   if (state.view === 'favorites') return all.filter(s => annotations(s).favorite);
   if (state.view === 'review') return all.filter(needsReview);
@@ -102,7 +110,7 @@ function matches(skill) {
     if (label !== state.filter) return false;
   }
   if (!state.query) return true;
-  return [skill.name,skill.display_name,skill.summary,skill.description,skill.source_label,skill.category,skill.plugin,annotations(skill).note || ''].join(' ').toLowerCase().includes(state.query);
+  return [skill.name,skill.display_name,skill.summary,skill.description,skill.source_label,skill.category,skill.plugin,annotations(skill).note || '',...(annotations(skill).tags || []),annotations(skill).origin_reason || '',annotations(skill).scope_note || ''].join(' ').toLowerCase().includes(state.query);
 }
 
 function filteredSkills() {
@@ -122,19 +130,42 @@ function rowHtml(skill) {
   return `<div role="listitem"><button class="skill-row ${skill.id===state.selected?'selected':''}" data-skill="${skill.id}" aria-pressed="${skill.id===state.selected}"><span class="skill-symbol">${icon(categoryIcon(skill))}</span><span class="row-body"><span class="row-title">${escape(skill.display_name)}${saved.favorite?`<span class="row-star">${icon('star')}</span>`:''}${skill.warnings.length?'<span class="warning-dot" title="有設定待確認"></span>':''}</span><span class="row-name">${escape(skill.name)}</span><span class="row-summary">${escape(skill.summary)}</span><span class="row-meta"><span>${escape(skill.source==='personal'?skill.category:skill.source_label)}</span>${saved.status && saved.status!=='keep'?`<i class="mini-dot"></i><span>${statusLabels[saved.status]}</span>`:''}${skill.versions.length>1?`<i class="mini-dot"></i><span>${skill.versions.length} 份快取</span>`:''}</span></span></button></div>`;
 }
 
+function visibleGroups() {
+  const groups=state.view==='related' ? state.data.related_groups : state.data.overlaps;
+  const byId=new Map(allSkills().map(skill=>[skill.id,skill]));
+  return groups.map(group=>({...group,skills:group.ids.map(id=>byId.get(id)).filter(s=>s && matches(s))})).filter(group=>group.skills.length);
+}
+
+function visibleSkills() {
+  if(!['overlaps','related'].includes(state.view)) return filteredSkills();
+  return [...new Map(visibleGroups().flatMap(group=>group.skills).map(skill=>[skill.id,skill])).values()];
+}
+
 function renderList() {
   if (!state.data) return;
-  if (state.view==='overlaps') {
-    const groups=state.data.overlaps.map(group=>({...group,skills:group.ids.map(id=>state.data.skills.find(s=>s.id===id)).filter(s=>s && matches(s))})).filter(g=>g.skills.length);
-    $('#listCount').textContent=`${groups.length} 組檢查候選`;
-    $('#skillList').innerHTML=groups.map(g=>`<section class="overlap-group"><h3>${escape(g.title)} · ${escape(g.label)}</h3><p>${escape(g.reason)}</p>${g.skills.map(rowHtml).join('')}</section>`).join('') || emptyHtml('沒有符合條件的檢查候選');
-    $('#listFootnote').textContent='檢查候選需要人工確認；用途相近不代表可以刪除。';
+  if (['overlaps','related'].includes(state.view)) {
+    const groups=visibleGroups();
+    $('#listCount').textContent=`${groups.length} 組${state.view==='related'?'相關工具':'檢查候選'}`;
+    $('#skillList').innerHTML=groups.map(group=>`<section class="overlap-group"><h3>${escape(group.title)} · ${escape(group.label)}</h3><p>${escape(group.reason)}</p>${group.skills.length>1?`<button class="quiet-button compact group-compare" data-compare-left="${group.skills[0].id}" data-compare-right="${group.skills[1].id}">${icon('intersect')}比較前兩項${state.data.comparisons[[group.skills[0].id,group.skills[1].id].sort().join(':')]?` · ${state.data.comparisons[[group.skills[0].id,group.skills[1].id].sort().join(':')].needs_review?'內容已變動':'已有結論'}`:''}</button>`:''}${group.skills.map(rowHtml).join('')}</section>`).join('') || emptyHtml('沒有符合條件的項目');
+    $('#listFootnote').textContent=state.view==='related'?'僅依分類整理，不是重複或淘汰判定。':'同名與相同內容分開比較，不會自動合併或刪除。';
   } else {
     const skills=filteredSkills();
     $('#listCount').textContent=`${skills.length} 個技能`;
     $('#skillList').innerHTML=skills.map(rowHtml).join('') || emptyHtml(state.view==='favorites'?'還沒有收藏的技能':'沒有符合條件的技能');
     $('#listFootnote').textContent=state.view==='other'?'快取不代表已啟用；不同版本已收合顯示。':'共用連結合併顯示，不重複計數。';
   }
+}
+
+function updateResults({resetScroll=false,renderSelected=false}={}) {
+  const list=$('#skillList'), position=list.scrollTop;
+  const visible=visibleSkills();
+  const selected=visible.some(skill=>skill.id===state.selected) ? state.selected : visible[0]?.id || null;
+  const changed=selected!==state.selected;
+  state.selected=selected;
+  if(changed)state.tab='guide';
+  renderList();
+  list.scrollTop=resetScroll?0:position;
+  if(changed || renderSelected || !selected)renderDetail();
 }
 
 function emptyHtml(title) { return `<div class="empty-list">${icon('search')}<strong>${escape(title)}</strong>試著調整搜尋或篩選條件。</div>`; }
@@ -144,20 +175,23 @@ function setView(view) {
   state.view=view;state.filter='全部';state.query='';state.selected=null;state.tab='guide';
   $('#searchInput').value='';
   $('#pageTitle').textContent=views[view][0];
-  $('#pageDescription').textContent=views[view][1];
-  $('#breadcrumbName').textContent=views[view][0];
   document.querySelectorAll('.nav-item').forEach(el=>{
     el.classList.toggle('active',el.dataset.view===view);
     if(el.dataset.view===view)el.setAttribute('aria-current','page');else el.removeAttribute('aria-current');
   });
-  renderFilters();renderList();
-  const first=state.view==='overlaps' ? state.data.overlaps[0]?.ids[0] : filteredSkills()[0]?.id;
-  if(first) selectSkill(first);else renderEmptyDetail();
+  renderFilters();updateResults({resetScroll:true,renderSelected:true});
 }
 
 function selectSkill(id) {
+  if(!visibleSkills().some(skill=>skill.id===id))return;
   state.selected=id;state.tab='guide';
-  renderList();renderDetail();
+  // Selecting a row must not rebuild the list or disturb its scroll position.
+  document.querySelectorAll('.skill-row').forEach(row=>{
+    const selected=row.dataset.skill===id;
+    row.classList.toggle('selected',selected);
+    row.setAttribute('aria-pressed',String(selected));
+  });
+  renderDetail();
 }
 
 function renderEmptyDetail() {
@@ -165,25 +199,61 @@ function renderEmptyDetail() {
 }
 
 function renderDetail() {
-  const skill=state.data.skills.find(s=>s.id===state.selected);
+  const skill=allSkills().find(s=>s.id===state.selected);
   if(!skill){renderEmptyDetail();return;}
   const saved=annotations(skill);
-  $('#detailPane').innerHTML=`<div class="detail-head"><div class="detail-topline"><span class="source-pill">${escape(skill.source_label)}</span><button class="icon-button ${saved.favorite?'is-favorite':''}" id="favoriteButton" aria-label="${saved.favorite?'取消收藏':'收藏這個技能'}" aria-pressed="${Boolean(saved.favorite)}">${icon('star')}</button></div><div class="detail-identity"><span class="detail-symbol">${icon(categoryIcon(skill))}</span><div><h2>${escape(skill.display_name)}</h2><div class="detail-code-name">${escape(skill.name)}</div></div></div><p class="detail-summary">${escape(skill.summary)}</p><div class="detail-tags"><span class="tool-pill">${icon('grid')}${escape(skill.category)}</span>${skill.associated_tools.map(tool=>`<span class="tool-pill">${escape(tool)} 目錄</span>`).join('')}<span class="tool-pill">${icon('lock')}原始檔唯讀</span></div><div class="detail-tabs" role="tablist" aria-label="技能資訊">${[['guide','使用指南'],['raw','原始內容'],['source','來源與設定']].map(([key,label])=>`<button role="tab" id="tab-${key}" aria-controls="tabContent" aria-selected="${state.tab===key}" class="detail-tab ${state.tab===key?'selected':''}" data-tab="${key}">${label}</button>`).join('')}</div></div><div class="detail-content" id="tabContent" role="tabpanel" aria-labelledby="tab-${state.tab}">${state.tab==='guide'?guideHtml(skill):state.tab==='source'?sourceHtml(skill):'<div class="loading-state">正在讀取原始內容…</div>'}</div>`;
+  $('#detailPane').innerHTML=`<div class="detail-head"><div class="detail-identity"><span class="detail-symbol">${icon(categoryIcon(skill))}</span><div class="detail-name"><h2>${escape(skill.display_name)}</h2><div class="detail-code-name">${escape(skill.name)}${skill.provenance.display_name==='user'?'<span class="origin-label">我的自訂名稱</span>':skill.provenance.display_name==='skillpane'?'<span class="origin-label">Skillpane 中文別名</span>':''}</div></div><button class="icon-button ${saved.favorite?'is-favorite':''}" id="favoriteButton" aria-label="${saved.favorite?'取消收藏':'收藏這個技能'}" aria-pressed="${Boolean(saved.favorite)}">${icon('star')}</button></div><p class="detail-summary" title="${escape(skill.summary)}">${escape(skill.summary)}</p><div class="detail-tabs" role="tablist" aria-label="技能資訊">${[['guide','使用指南'],['raw','原始內容'],['source','來源與設定']].map(([key,label])=>`<button role="tab" id="tab-${key}" aria-controls="tabContent" aria-selected="${state.tab===key}" class="detail-tab ${state.tab===key?'selected':''}" data-tab="${key}">${label}</button>`).join('')}</div></div><div class="detail-content" id="tabContent" role="tabpanel" tabindex="0" aria-labelledby="tab-${state.tab}">${state.tab==='guide'?guideHtml(skill):state.tab==='source'?sourceHtml(skill):'<div class="loading-state">正在讀取原始內容…</div>'}</div>`;
   if(state.tab==='raw') loadRaw(skill);
+  if(state.tab==='source') loadSourceEvidence(skill.id);
 }
 
 function commandRow(host,command) {
-  return `<div class="command-row"><span class="command-host">${host}</span><code>${escape(command || '請使用技能選擇器')}</code>${command?`<button class="copy-button" data-copy="${escape(command)}" aria-label="複製 ${host} 呼叫指令">${icon('copy')}</button>`:''}</div>`;
+  return `<div class="command-row"><span class="command-host">${host}</span><code>${escape(command || '請在對應工具的技能選擇器確認')}</code>${command?`<button class="copy-button" data-copy="${escape(command)}" aria-label="複製 ${host} 呼叫指令">${icon('copy')}</button>`:''}</div>`;
+}
+
+function diagnosticsHtml(skill) {
+  return skill.warnings.map(w=>`<div class="notice">${icon('info')}${escape(w)}</div>`).join('') +
+    skill.advisories.map(w=>`<div class="advisory">${icon('info')}${escape(w)}</div>`).join('');
 }
 
 function guideHtml(skill) {
   const saved=annotations(skill);
   const note=state.drafts.has(skill.id)?state.drafts.get(skill.id):saved.note || '';
-  return `<section class="detail-section"><h3 class="section-heading">如何呼叫</h3><div class="command-card">${commandRow('Codex CLI',skill.commands.codex)}${commandRow('Claude Code',skill.commands.claude)}</div><p class="helper-text">以上為 CLI 呼叫格式；桌面版也可使用技能選擇器，或在指令中明確指定技能名稱。目錄關聯不代表目前對話已載入。</p></section><section class="detail-section"><h3 class="section-heading">試著這樣說<span class="muted">可直接複製</span></h3><div class="prompt-card"><p>${escape(skill.example)}</p><button class="copy-button" data-copy="${escape(skill.example)}" aria-label="複製使用範例">${icon('copy')}</button></div></section>${skill.warnings.map(w=>`<div class="notice">${icon('info')}${escape(w)}</div>`).join('')}<section class="detail-section"><div class="organize-head"><h3 class="section-heading">我的整理</h3><select class="organize-select" id="statusSelect" aria-label="整理狀態">${Object.entries(statusLabels).map(([key,label])=>`<option value="${key}" ${(saved.status||'keep')===key?'selected':''}>${label}</option>`).join('')}</select></div><textarea class="note-input" id="noteInput" placeholder="記下你會在什麼情境使用它…" aria-label="個人使用筆記" maxlength="4000">${escape(note)}</textarea><div class="note-footer"><span id="noteState">${state.drafts.has(skill.id)?'有尚未儲存的筆記':'只儲存在這台電腦，不修改技能內容'}</span><button class="secondary-button" id="saveNoteButton">儲存筆記</button></div></section><section class="detail-section"><h3 class="section-heading">使用紀錄</h3><p class="section-copy">尚未收集可靠的呼叫紀錄。</p><p class="helper-text">技能修改時間不等於使用時間，不會據此判定是否應該淘汰。</p></section>`;
+  return `<section class="detail-section">
+    <h3 class="section-heading">呼叫方式<span class="muted">CLI 參考格式</span></h3>
+    <div class="command-card">${commandRow('Codex CLI',skill.commands.codex)}${commandRow('Claude Code',skill.commands.claude)}</div>
+    <details class="call-help"><summary>呼叫方式說明</summary><p class="helper-text">${escape(skill.command_note)} 桌面版可透過技能選擇器或明確指定技能名稱。目錄關聯不代表目前對話已載入。</p></details>
+  </section><section class="detail-section">
+    <h3 class="section-heading">試著這樣說<span class="muted">Skillpane 示範</span></h3>
+    <div class="prompt-card"><p>${escape(skill.example)}</p><button class="copy-button" data-copy="${escape(skill.example)}" aria-label="複製使用範例">${icon('copy')}</button></div>
+  </section>${diagnosticsHtml(skill)}<section class="detail-section">
+    <div class="organize-head"><h3 class="section-heading">我的整理</h3><button id="editMetadataButton" class="quiet-button compact">編輯整理資訊</button><select class="organize-select" id="statusSelect" aria-label="整理狀態">${Object.entries(statusLabels).map(([key,label])=>`<option value="${key}" ${(saved.status||'keep')===key?'selected':''}>${label}</option>`).join('')}</select></div>
+    ${organizationHtml(skill,saved)}<textarea class="note-input" id="noteInput" placeholder="記下你會在什麼情境使用它…" aria-label="個人使用筆記" maxlength="4000">${escape(note)}</textarea>
+    <div class="note-footer"><span id="noteState">${state.drafts.has(skill.id)?'有尚未儲存的筆記':'只儲存在這台電腦，不修改技能內容'}</span><button class="secondary-button" id="saveNoteButton">儲存筆記</button></div>
+  </section>`;
+}
+
+function settingHtml(host,setting) {
+  const label=setting.state==='unknown'?'無法判讀':`${setting.allowed?'允許':'禁止'}自動選用（${setting.state==='explicit'?'明確設定':'採工具預設'}）`;
+  return `<div class="policy-card"><div class="status-line"><span>${host}</span><span class="${setting.state==='unknown'?'status-unknown':'status-value'}">${label}</span></div><code>${escape(setting.source)}${setting.line?`:${setting.line}`:''}</code><p class="helper-text">欄位：${escape(setting.field)} · ${escape(setting.reason)}</p></div>`;
 }
 
 function sourceHtml(skill) {
-  return `<section class="detail-section"><h3 class="section-heading">技能本體</h3><div class="path-box">${escape(skill.path)}</div><p class="helper-text">原始檔維持唯讀；修改與封存功能尚未開放。</p></section>${skill.aliases.length>1?`<section class="detail-section"><h3 class="section-heading">共用連結<span class="muted">同一份本體，只計算一次</span></h3>${skill.aliases.filter(a=>a!==skill.path).map(a=>`<div class="version-item"><code>${escape(a)}</code></div>`).join('')}</section>`:''}<section class="detail-section"><h3 class="section-heading">自動選用設定</h3><div class="status-line"><span>Codex</span><span class="status-value">${skill.invocation.codex_implicit?'允許自動選用（明確設定或預設值）':'僅手動呼叫'}</span></div><div class="status-line"><span>Claude Code</span><span class="status-value">${skill.invocation.claude_implicit?'允許自動選用（明確設定或預設值）':'僅手動呼叫'}</span></div><p class="helper-text">依 SKILL.md 與 agents/openai.yaml 的宣告判讀；實際是否可呼叫仍取決於工具載入與專案設定。</p>${skill.warnings.map(w=>`<div class="notice">${escape(w)}</div>`).join('')}</section>${skill.source==='plugin'?`<section class="detail-section"><h3 class="section-heading">磁碟上的快取<span class="muted">${skill.versions.length} 份</span></h3><p class="helper-text">預設顯示版本排序較新的快取，並非已確認啟用的版本。</p>${skill.versions.map(v=>`<div class="version-item">${escape(v.version || '未標示版本')}<code>${escape(v.path)}</code></div>`).join('')}</section>`:''}<section class="detail-section"><h3 class="section-heading">檔案資訊</h3><div class="status-line"><span>最後修改</span><span>${escape(displayedTime(skill.modified_at))}<br>台灣時間 UTC+8</span></div><div class="status-line"><span>最近呼叫</span><span class="status-unknown">未知</span></div><div class="status-line"><span>內容指紋</span><code>${escape(skill.sha256.slice(0,16))}…</code></div></section>`;
+  return `<section class="detail-section">
+    <h3 class="section-heading">內容來源</h3>
+    <div class="status-line"><span>顯示名稱</span><span>${skill.provenance.display_name==='user'?'使用者自訂名稱':skill.provenance.display_name==='skillpane'?'Skillpane 中文別名':skill.provenance.display_name==='folder'?'資料夾名稱（原始名稱缺漏或無法判讀）':'技能原始名稱'}</span></div>
+    <div class="status-line"><span>用途摘要</span><span>${skill.provenance.summary==='user'?'使用者自訂摘要':skill.provenance.summary==='skillpane'?'Skillpane 補充摘要':skill.provenance.summary==='fallback'?'缺少原始描述，使用面板提示':'原始 description'}</span></div>
+    <div class="status-line"><span>使用範例</span><span>Skillpane 示範，非原作者指令</span></div>
+    <h3 class="section-heading original-heading">原始描述</h3><p class="section-copy original-description">${escape(skill.description || '原始檔未提供 description。')}</p>
+    <div class="detail-tags"><span class="tool-pill">${escape(skill.source_label)}</span><span class="tool-pill">${escape(skill.category)}</span>${skill.associated_tools.map(tool=>`<span class="tool-pill">${escape(tool)} 目錄</span>`).join('')}</div>
+  </section>${historyHtml(skill,annotations(skill),displayedTime)}<section class="detail-section">
+    <h3 class="section-heading">技能本體</h3><div class="path-box">${escape(skill.path)}</div><p class="helper-text">原始檔維持唯讀；整理標記不會停用或封存技能。</p>
+  </section>${skill.aliases.length>1?`<section class="detail-section"><h3 class="section-heading">共用連結<span class="muted">同一份本體，只計算一次</span></h3>${skill.aliases.filter(a=>a!==skill.path).map(a=>`<div class="version-item"><code>${escape(a)}</code></div>`).join('')}</section>`:''}
+  <section class="detail-section"><h3 class="section-heading">自動選用宣告</h3>
+    ${settingHtml('Codex',skill.invocation.codex)}${settingHtml('Claude Code',skill.invocation.claude)}
+    <p class="helper-text">僅判讀相關欄位，不是整份 YAML 的驗證或實際啟用確認。原文中的使用意圖與工具強制設定分開看；實際可用性仍取決於工具載入及專案設定。</p>${diagnosticsHtml(skill)}
+  </section>${skill.source==='plugin'?`<section class="detail-section"><h3 class="section-heading">磁碟上的快取<span class="muted">${skill.versions.length} 份</span></h3><p class="helper-text">顯示版本排序較新的快取，實際啟用版本未知。${escape(skill.command_note)}</p>${skill.versions.map(v=>`<div class="version-item">${escape(v.version || '未標示版本')}<code>${escape(v.path)}</code></div>`).join('')}</section>`:''}
+  <section class="detail-section"><h3 class="section-heading">檔案資訊</h3><div class="status-line"><span>最後修改</span><span>${escape(displayedTime(skill.modified_at))}<br>台灣時間 UTC+8</span></div><div class="status-line"><span>最近呼叫</span><span class="status-unknown">未知，修改時間不等於使用時間</span></div><div class="status-line"><span>內容指紋</span><code>${escape(skill.sha256.slice(0,16))}…</code></div></section>`;
 }
 
 async function loadRaw(skill) {
@@ -202,7 +272,7 @@ async function saveAnnotation(skillId,patch,successMessage) {
   try {
     const annotation=await api(`/api/annotation?id=${skillId}`,{method:'PATCH',body:JSON.stringify(patch)});
     state.data.annotations[skillId]=annotation;
-    renderSummary();renderList();
+    renderSummary();renderFilters();updateResults();
     if(successMessage)toast(successMessage);
     return true;
   } catch(error){toast(error.message);return false;}
@@ -216,9 +286,9 @@ async function refresh() {
   try {
     const data=await api(initial?'/api/state':'/api/rescan',initial?{}:{method:'POST',body:'{}'});
     state.data=data;state.content.clear();
-    renderSummary();renderFilters();renderList();
+    renderSummary();
     if(initial)setView('personal');
-    else if(data.skills.some(s=>s.id===state.selected))renderDetail();else{state.selected=null;renderEmptyDetail();}
+    else{renderFilters();updateResults({renderSelected:true});}
     if(!initial)toast('技能庫已更新');
   } catch(error){
     toast(error.message);
@@ -231,7 +301,7 @@ document.addEventListener('click', async event=>{
   const target=event.target.closest('button');if(!target)return;
   if(target.dataset.view){setView(target.dataset.view);return;}
   if(target.dataset.skill){selectSkill(target.dataset.skill);return;}
-  if(target.dataset.filter){state.filter=target.dataset.filter;renderFilters();renderList();return;}
+  if(target.dataset.filter){state.filter=target.dataset.filter;renderFilters();updateResults({resetScroll:true});return;}
   if(target.dataset.tab){state.tab=target.dataset.tab;renderDetail();return;}
   if(target.dataset.copy){
     try{await navigator.clipboard.writeText(target.dataset.copy);toast('已複製');}catch{toast('瀏覽器未允許複製，請手動選取文字。');}
@@ -239,7 +309,7 @@ document.addEventListener('click', async event=>{
   }
   if(target.id==='favoriteButton'){
     const skillId=state.selected;
-    const skill=state.data.skills.find(s=>s.id===skillId);
+    const skill=allSkills().find(s=>s.id===skillId);
     if(await saveAnnotation(skillId,{favorite:!annotations(skill).favorite},annotations(skill).favorite?'已取消收藏':'已加入收藏')){
       if(state.selected===skillId)renderDetail();
     }
@@ -254,19 +324,21 @@ document.addEventListener('click', async event=>{
     if(target.isConnected)target.disabled=false;
   }
 });
-$('#searchInput').addEventListener('input',event=>{state.query=event.target.value.trim().toLowerCase();renderList();});
-$('#sortButton').addEventListener('click',()=>{state.sort=state.sort==='name'?'modified':'name';$('#sortButton').innerHTML=icon('sort')+`<span>${state.sort==='name'?'名稱':'修改時間'}</span>`;renderList();});
-$('#detailPane').addEventListener('input',event=>{if(event.target.id==='noteInput'){state.drafts.set(state.selected,event.target.value);$('#noteState').textContent='有尚未儲存的筆記';}});
+$('#searchInput').addEventListener('input',event=>{state.query=event.target.value.trim().toLowerCase();updateResults({resetScroll:true});});
+$('#sortButton').addEventListener('click',()=>{state.sort=state.sort==='name'?'modified':'name';$('#sortButton').innerHTML=icon('sort')+`<span>${state.sort==='name'?'名稱':'修改時間'}</span>`;updateResults({resetScroll:true});});
+$('#detailPane').addEventListener('input',event=>{if(event.target.id==='noteInput'){const saved=state.data.annotations[state.selected]?.note || '';if(event.target.value===saved)state.drafts.delete(state.selected);else state.drafts.set(state.selected,event.target.value);$('#noteState').textContent=state.drafts.has(state.selected)?'有尚未儲存的筆記':'只儲存在這台電腦，不修改技能內容';}});
 $('#detailPane').addEventListener('change',async event=>{
   if(event.target.id==='statusSelect'){
     const skillId=state.selected;event.target.disabled=true;
     const ok=await saveAnnotation(skillId,{status:event.target.value},'整理狀態已更新');
-    if(event.target.isConnected){event.target.disabled=false;if(!ok)event.target.value=annotations(state.data.skills.find(s=>s.id===skillId)).status || 'keep';}
+    if(event.target.isConnected){event.target.disabled=false;if(!ok)event.target.value=annotations(allSkills().find(s=>s.id===skillId)).status || 'keep';}
   }
 });
 $('#refreshButton').addEventListener('click',refresh);
 $('#themeButton').addEventListener('click',()=>setTheme(document.documentElement.dataset.theme==='dark'?'light':'dark'));
 $('#themeSelect').addEventListener('change',event=>setTheme(event.target.value));
+$('#scopeButton').addEventListener('click',()=>$('#scopeDialog').showModal());
+$('#closeScope').addEventListener('click',()=>$('#scopeDialog').close());
 $('#settingsButton').addEventListener('click',()=>$('#settingsDialog').showModal());
 $('#closeSettings').addEventListener('click',()=>$('#settingsDialog').close());
 $('#settingsDialog').addEventListener('click',event=>{if(event.target===$('#settingsDialog')){const r=event.target.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)event.target.close();}});
@@ -275,8 +347,10 @@ $('#exportButton').addEventListener('click',async()=>{
 });
 document.addEventListener('keydown',event=>{
   if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='k'){event.preventDefault();$('#searchInput').focus();$('#searchInput').select();}
-  if(event.key==='Escape' && document.activeElement===$('#searchInput')){state.query='';$('#searchInput').value='';renderList();}
+  if(event.key==='Escape' && document.activeElement===$('#searchInput')){state.query='';$('#searchInput').value='';updateResults({resetScroll:true});}
 });
-window.addEventListener('beforeunload',event=>{if(state.drafts.size){event.preventDefault();event.returnValue='';}});
+window.addEventListener('beforeunload',event=>{if(state.drafts.size || state.managementDirty?.size){event.preventDefault();event.returnValue='';}});
 if(/Mac|iPhone|iPad/.test(navigator.platform))$('#searchShortcut').textContent='⌘ K';
+async function syncState(){state.data=await api('/api/state');renderSummary();renderFilters();updateResults({renderSelected:true});}
+initializeManagement({state,api,syncState,toast,displayedTime});
 await refresh();

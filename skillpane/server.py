@@ -9,10 +9,13 @@ from urllib.parse import parse_qs, urlsplit
 from . import __version__
 from .catalog import Catalog
 from .storage import Annotations
+from .library import Library
+from .transfers import Transfers
 
 PROJECT = Path(__file__).resolve().parent.parent
 ASSETS = {'/': ('index.html', 'text/html; charset=utf-8'),
           '/app.js': ('app.js', 'text/javascript; charset=utf-8'),
+          '/management.js': ('management.js', 'text/javascript; charset=utf-8'),
           '/styles.css': ('styles.css', 'text/css; charset=utf-8'),
           '/favicon.svg': ('favicon.svg', 'image/svg+xml')}
 
@@ -30,13 +33,15 @@ class AppServer(ThreadingHTTPServer):
         if within(directory.resolve(), [p.resolve() for p in roots(home)]):
             raise ValueError('整理資料不可放在技能目錄內。')
         self.catalog = Catalog(home)
-        self.annotations = Annotations(directory)
+        self.annotations = Annotations(directory, recover=True)
+        self.library = Library(self.catalog, self.annotations)
+        self.transfers = Transfers(self.library)
         super().__init__((host, port), Handler)
         self.origin = f'http://127.0.0.1:{self.server_address[1]}'
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = 'Skillpane/0.1'
+    server_version = f'Skillpane/{__version__}'
 
     def setup(self):
         super().setup()
@@ -100,11 +105,29 @@ class Handler(BaseHTTPRequestHandler):
         if url.path == '/api/health':
             self.json({'app': 'skillpane', 'version': __version__, 'skill_files_readonly': True})
         elif url.path == '/api/state':
-            self.json({**self.server.catalog.snapshot(), 'annotations': self.server.annotations.snapshot()})
+            self.json(self.server.library.snapshot())
+        elif url.path in {'/api/backup', '/api/backups', '/api/source', '/api/compare'}:
+            try:
+                query = parse_qs(url.query)
+                if url.path == '/api/backup':
+                    result = self.server.transfers.export()
+                elif url.path == '/api/backups':
+                    result = {'files': self.server.transfers.backups(), 'settings': self.server.annotations.state['settings']}
+                elif url.path == '/api/source':
+                    result = self.server.library.provenance(query.get('id', [''])[0])
+                else:
+                    result = self.server.library.comparison(query.get('left', [''])[0], query.get('right', [''])[0])
+                self.json(result)
+            except KeyError:
+                self.json({'error': '找不到指定技能。'}, 404)
+            except ValueError as error:
+                self.json({'error': str(error)}, 400)
+            except (OSError, RuntimeError):
+                self.json({'error': '無法讀取這份資料；請檢查本機資料或重新選擇。'}, 400)
         elif url.path == '/api/skill':
             try:
                 skill_id = parse_qs(url.query).get('id', [''])[0]
-                self.json({'content': self.server.catalog.content(skill_id)})
+                self.json({'content': self.server.library.content(skill_id)})
             except (KeyError, OSError, ValueError, RuntimeError):
                 self.json({'error': '無法讀取技能內容，請重新掃描。'}, 404)
         elif url.path == '/api/export':
@@ -114,6 +137,10 @@ class Handler(BaseHTTPRequestHandler):
                 entry.pop('path', None)
                 entry.pop('aliases', None)
                 entry.pop('versions', None)
+                entry['invocation'] = {key: {field: value for field, value in setting.items() if field != 'source'}
+                                       if isinstance(setting, dict) else setting
+                                       for key, setting in entry['invocation'].items()}
+            snapshot['scan_scope'].pop('roots', None)
             self.json(snapshot)
         elif url.path in ASSETS:
             name, mime = ASSETS[url.path]
@@ -121,11 +148,11 @@ class Handler(BaseHTTPRequestHandler):
         else:
             self.json({'error': '找不到這個資源。'}, 404)
 
-    def body(self):
+    def body(self, maximum=24000):
         if self.headers.get('Transfer-Encoding'):
             raise ValueError('不支援分塊請求。')
         length = int(self.headers.get('Content-Length', '0'))
-        if not 0 < length <= 24000:
+        if not 0 < length <= maximum:
             raise ValueError('請求大小不正確。')
         raw = self.rfile.read(length)
         self._body_consumed = True
@@ -137,15 +164,36 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         if not self.trusted(write=True):
             return
-        if urlsplit(self.path).path != '/api/rescan':
+        route = urlsplit(self.path).path
+        actions = {
+            '/api/import/preview': self.server.transfers.preview_import,
+            '/api/import/apply': self.server.transfers.apply_import,
+            '/api/restore/preview': self.server.transfers.preview_restore,
+            '/api/relink/preview': self.server.transfers.preview_relink,
+            '/api/relink/apply': self.server.transfers.apply_relink,
+            '/api/backup/settings': self.server.transfers.settings,
+            '/api/backups/cleanup/preview': lambda _: self.server.transfers.preview_cleanup(),
+            '/api/backups/cleanup/apply': self.server.transfers.apply_cleanup,
+            '/api/comparison': self.server.library.save_comparison,
+        }
+        if route not in actions and route != '/api/rescan':
             self.json({'error': '技能本體維持唯讀。'}, 405)
             return
         try:
-            self.body()
-            self.server.catalog.refresh()
-            self.json({**self.server.catalog.snapshot(), 'annotations': self.server.annotations.snapshot()})
-        except (ValueError, OSError, UnicodeError):
-            self.json({'error': '重新掃描失敗，原有清單仍可使用。'}, 400)
+            payload = self.body(4 * 1024 * 1024 + 65536 if route == '/api/import/preview' else 1024 * 1024 if route == '/api/import/apply' else 24000)
+            if route == '/api/rescan':
+                self.server.catalog.refresh()
+                self.server.library.git_cache.clear()
+                result = self.server.library.snapshot()
+            else:
+                result = actions[route](payload)
+            self.json(result)
+        except KeyError:
+            self.json({'error': '找不到指定技能，請重新掃描。'}, 404)
+        except ValueError as error:
+            self.json({'error': str(error) if not isinstance(error, (json.JSONDecodeError, UnicodeError)) else 'JSON 或文字格式錯誤，未套用資料。'}, 400)
+        except (OSError, RuntimeError, TypeError):
+            self.json({'error': '操作未完成，請保留現有資料並重新預覽。'}, 400)
 
     def do_PATCH(self):
         if not self.trusted(write=True):
@@ -155,7 +203,7 @@ class Handler(BaseHTTPRequestHandler):
             self.json({'error': '技能本體維持唯讀。'}, 405)
             return
         skill_id = parse_qs(url.query).get('id', [''])[0]
-        if skill_id not in self.server.catalog.by_id:
+        if skill_id not in self.server.library.live:
             self.json({'error': '找不到要整理的技能。'}, 404)
             return
         try:

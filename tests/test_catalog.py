@@ -75,7 +75,8 @@ class CatalogTests(unittest.TestCase):
         entry = Catalog(self.home).snapshot()['skills'][0]
         self.assertFalse(entry['invocation']['claude_implicit'])
         self.assertTrue(entry['invocation']['codex_implicit'])
-        self.assertTrue(entry['warnings'])
+        self.assertFalse(entry['warnings'])
+        self.assertTrue(entry['advisories'])
         policy = path.parent / 'agents/openai.yaml'
         policy.parent.mkdir()
         policy.write_text('policy:\n  allow_implicit_invocation: false\n', encoding='utf-8')
@@ -85,6 +86,48 @@ class CatalogTests(unittest.TestCase):
     def test_frontmatter_multiline_and_quoted_values(self):
         data = parse_frontmatter('---\nname: "example"\ndescription: >-\n  first line\n  second line\n---\n')
         self.assertEqual(data, {'name':'example', 'description':'first line second line'})
+
+    def test_related_categories_do_not_count_as_duplicates(self):
+        skill(self.home, '.agents/skills/motion-one', 'motion-one', 'Build animations')
+        skill(self.home, '.agents/skills/motion-two', 'motion-two', 'Review animation')
+        snapshot = Catalog(self.home).snapshot()
+        self.assertEqual(snapshot['overlaps'], [])
+        self.assertEqual(snapshot['stats']['related_groups'], 1)
+        self.assertEqual(len(snapshot['related_groups'][0]['ids']), 2)
+
+    def test_provenance_requires_known_description_and_personal_location(self):
+        description = "This skill encodes Emil Kowalski's philosophy on UI polish, component design, animation decisions, and the invisible details that make software feel great."
+        original = skill(self.home, '.agents/skills/emil-design-eng', 'emil-design-eng', description)
+        skill(self.home, '.codex/plugins/cache/market/example/1/skills/emil-design-eng', 'emil-design-eng', description)
+        snapshot = Catalog(self.home).snapshot()
+        personal = next(s for s in snapshot['skills'] if s['source'] == 'personal')
+        plugin = next(s for s in snapshot['skills'] if s['source'] == 'plugin')
+        self.assertEqual(personal['description'], description)
+        self.assertEqual(personal['provenance']['display_name'], 'skillpane')
+        self.assertEqual(plugin['display_name'], 'emil-design-eng')
+        self.assertEqual(plugin['commands'], {'codex':'', 'claude':''})
+        original.write_text(original.read_text(encoding='utf-8').replace(description, 'A different custom skill'), encoding='utf-8')
+        personal = next(s for s in Catalog(self.home).snapshot()['skills'] if s['source'] == 'personal')
+        self.assertEqual(personal['provenance']['display_name'], 'skill')
+        self.assertEqual(personal['summary'], 'A different custom skill')
+
+    def test_unknown_policy_is_visible_and_does_not_change_sources(self):
+        path = skill(self.home, '.agents/skills/example')
+        policy = path.parent / 'agents/openai.yaml'
+        policy.parent.mkdir()
+        policy.write_text('policy:\n  allow_implicit_invocation: "false"\n', encoding='utf-8')
+        before = path.read_bytes(), policy.read_bytes()
+        record = Catalog(self.home).snapshot()['skills'][0]
+        self.assertIsNone(record['invocation']['codex_implicit'])
+        self.assertEqual(record['invocation']['codex']['state'], 'unknown')
+        self.assertTrue(record['warnings'])
+        self.assertEqual(before, (path.read_bytes(), policy.read_bytes()))
+
+    def test_scan_scope_does_not_claim_project_or_activation_coverage(self):
+        snapshot = Catalog(self.home).snapshot()
+        self.assertEqual(len(snapshot['scan_scope']['roots']), 4)
+        self.assertFalse(snapshot['scan_scope']['project_skills_scanned'])
+        self.assertFalse(snapshot['scan_scope']['activation_verified'])
 
     def test_unknown_id_cannot_read_arbitrary_file(self):
         catalog = Catalog(self.home)
