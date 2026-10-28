@@ -45,6 +45,8 @@ python scripts/check_publication.py --history --include-untracked
 
 Node is only used for optional syntax checks. CI is configured for Windows/Linux tests and a fully redacted Gitleaks scan of reachable Git history. See [development](docs/DEVELOPMENT.md) for manual browser regressions and the publication checklist.
 
+The [security testing record (Chinese)](docs/SECURITY_TESTING.md) describes local adversarial checks and their limits. This is internal testing, not an independent penetration test or a guarantee that the software has no vulnerabilities.
+
 ## License and attribution
 
 MIT, with preserved upstream attribution. Skillpane began as an independent derivative of [oh-my-skills](https://github.com/AIjunja/oh-my-skills); see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and [LICENSE](LICENSE). It is not affiliated with Apple, OpenAI or Anthropic.

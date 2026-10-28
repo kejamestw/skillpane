@@ -14,10 +14,10 @@ Skillpane 是早期的本機個人工具。目前只對最新 0.2 修訂版提�
 ## 現有防護與限制
 
 - 固定 loopback、Host／Origin／Fetch Metadata 檢查；寫入需同源 JSON 與自訂 header，不開放 CORS。
-- 靜態資源使用允許清單；技能內容以掃描識別取得，讀取前檢查 canonical path 與大小，沒有任意檔案路徑 API。
+- 靜態資源使用允許清單；技能內容以掃描識別取得，讀取與 Git 來源查詢前重新檢查 canonical path 與大小，沒有任意檔案路徑 API。掃描的排除規則也套用到連結解析後的位置；超長識別會略過並計數。
 - 不執行技能腳本，不把原文當 HTML。動態文字經 escaping／textContent；CSP 禁止 inline script 與外部 script、frame、object。
 - HTTP body、整理資料、匯入筆數及欄位有上限；拒絕歧義 JSON、非有限數值與不支援的分塊寫入。
-- 整理資料寫入獨立目錄，先備份再原子替換；預覽 token 限時、檢查資料 revision。它不是跨程序資料庫鎖，也不是跨多檔案的交易；每個 checkout 請只執行一個實例。
+- 整理資料寫入獨立目錄，先備份再原子替換；預覽 token 限時、檢查資料 revision。寫入及預覽套用會檢查磁碟資料指紋，清理預覽也會先檢查，外部改寫時停止操作。它不是跨程序資料庫鎖，也不是跨多檔案的交易；每個 checkout 請只執行一個實例。
 - 清理只針對通過檢查的備份名稱，先列出清單再明確確認，並比對內容指紋；多檔刪除若遇到檔案系統錯誤，可能只完成部分刪除。
 - 機密掃描與 Git 忽略規則不會清除使用者輸入文字中的所有秘密；備份並未加密。
 
@@ -32,6 +32,8 @@ Repository 公開且維護者啟用 GitHub private vulnerability reporting 後�
 報告請提供版本、平台、受影響功能、最小合成重現步驟、攻擊所需權限及影響範圍。以測試值替代憑證；若真實憑證已暴露，請先向發行者撤銷／輪替。
 
 ## 公開與發版前
+
+本機攻擊情境回歸、工具使用方式及尚未驗證範圍見 [安全測試紀錄](docs/SECURITY_TESTING.md)。這是維護過程中的內部驗證，不是獨立滲透測試。
 
 請完成 [開發指南的檢查表](docs/DEVELOPMENT.md#公開前檢查)，並確認 CI 結果。私有漏洞回報、secret scanning、push protection、CodeQL 及分支保護等 GitHub 功能是否可用取決於 repository 狀態與方案，設定檔本身不表示已啟用。
 

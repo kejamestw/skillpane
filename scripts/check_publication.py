@@ -4,11 +4,15 @@ Only filenames and counts are printed. Never reads personal skill directories.
 """
 import argparse
 from pathlib import Path, PurePosixPath
+import shutil
 import subprocess
 
 
 def git(*args):
-    return subprocess.check_output(['git', *args], cwd=ROOT).decode('utf-8', errors='surrogateescape')
+    executable = shutil.which('git')
+    if executable is None:
+        raise RuntimeError('Git is required for publication checks.')
+    return subprocess.check_output([executable, *args], cwd=ROOT).decode('utf-8', errors='surrogateescape')
 
 
 def forbidden(name):

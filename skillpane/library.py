@@ -155,11 +155,10 @@ class Library:
     def provenance(self, stable_id):
         with self.store.lock:
             skill = self.skill(stable_id)
+            path = self.catalog.source_path(skill['id'])
             key = skill['path'], skill['sha256']
             if key in self.git_cache:
                 return clone(self.git_cache[key])
-            with self.catalog.lock:
-                path = self.catalog.by_id[skill['id']]['_path']
         result = {'state': 'unknown', 'first_added_at': None, 'commit': None}
         executable = shutil.which('git')
         if executable:

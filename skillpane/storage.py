@@ -232,11 +232,7 @@ class Annotations:
             if len(content.encode('utf-8')) > MAX_BYTES:
                 raise ValueError('整理資料超過 4 MiB 上限，原資料維持不變。')
             self.safe_directory()
-            if self.path.is_symlink():
-                raise ValueError('本機整理資料路徑已變更，停止寫入。')
-            current_digest = file_digest(self.path) if self.path.exists() else None
-            if current_digest != self.disk_digest:
-                raise ValueError('整理資料已由其他程序變更，請重新啟動面板後再操作。')
+            self.ensure_unchanged()
             if self.path.exists():
                 directory = self.safe_directory('backups')
                 backup = directory / f'{datetime.now(timezone.utc):%Y%m%dT%H%M%S}-{uuid4().hex}.json'
@@ -252,6 +248,15 @@ class Annotations:
             self.state = next_state
             self.disk_digest = sha256(content.encode('utf-8')).hexdigest()
             self.error, self.legacy = None, False
+
+    def ensure_unchanged(self):
+        """Also guard destructive operations that do not commit annotations."""
+        with self.lock:
+            if self.directory.resolve() != self.directory or self.path.is_symlink():
+                raise ValueError('本機整理資料路徑已變更，停止操作。')
+            current_digest = file_digest(self.path) if self.path.exists() else None
+            if current_digest != self.disk_digest:
+                raise ValueError('整理資料已由其他程序變更，請重新啟動面板後再操作。')
 
     def update(self, skill_id, payload):
         validate_annotation(payload)

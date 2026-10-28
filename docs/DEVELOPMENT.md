@@ -45,6 +45,8 @@ python -B tests/browser_fixture.py --port 8779
 
 同一個合成服務也可貼入 `tests/browser-security.js` 並執行 `await runSecurityRegression()`，驗證名稱、摘要、標籤、筆記等惡意 HTML 維持文字顯示，沒有建立注入元素或執行事件。
 
+`tests/test_adversarial.py` 會自動被 unittest discovery 收錄，涵蓋外部改寫、失效／重用預覽、備份變更、連結換向、超長識別及惡意請求。具體範圍、靜態工具與結果見 [安全測試紀錄](SECURITY_TESTING.md)。
+
 ## 機密掃描與 CI
 
 `scripts/check_publication.py` 僅檢查 Git 檔案邊界，不是機密掃描器。另使用 [Gitleaks](https://github.com/gitleaks/gitleaks) 掃描：

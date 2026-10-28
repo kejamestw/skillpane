@@ -5,7 +5,7 @@ async function runSecurityRegression(){
   const skill=initial.skills.find(item=>item.name==='fixture-148');
   const original=initial.annotations[skill.id] || {};
   const defaults={alias:'',summary:'',category:'',tags:[],origin_reason:'',scope_note:'',note:''};
-  const payload='<img src=x onerror="window.__skillpaneXss=1">';
+  const payloads=['<img src=x onerror="window.__skillpaneXss=1">','<svg onload="window.__skillpaneXss=1"></svg>','</textarea><script>window.__skillpaneXss=1</script>" autofocus onfocus="window.__skillpaneXss=1'];
   const fingerprints=value=>JSON.stringify(value.skills.map(item=>[item.name,item.sha256]));
   const checks=[];
   const assert=(value,name)=>{if(!value)throw new Error(name);checks.push(name);};
@@ -13,6 +13,7 @@ async function runSecurityRegression(){
   const refresh=async()=>{document.querySelector('#refreshButton').click();await until(()=>!document.querySelector('#refreshButton').disabled);};
   const patch=value=>api('/api/annotation?id='+skill.id,{method:'PATCH',body:JSON.stringify(value)});
   try{
+    for(const payload of payloads){
     await patch({alias:payload,summary:payload,category:'安全測試',tags:['tag<img src=x>'],origin_reason:payload,scope_note:payload,note:payload});
     await refresh();
     document.querySelector('.nav-item[data-view="personal"]').click();
@@ -25,6 +26,11 @@ async function runSecurityRegression(){
     assert(document.querySelector('[name="alias"]').value===payload && !document.querySelector('#metadataDialog img'),'編輯欄位保留文字並安全顯示');
     document.querySelector('[data-close="metadataDialog"]').click();
     assert(window.__skillpaneXss!==1,'惡意事件處理常式未執行');
+    }
+    document.querySelector('[data-tab="raw"]').click();
+    await until(()=>document.querySelector('#tabContent pre'));
+    assert(document.querySelector('#tabContent pre').textContent.includes('<script>not executable</script>') && !document.querySelector('#tabContent script'),'技能原文的 script 標籤維持純文字');
+    document.querySelector('[data-tab="guide"]').click();
   }finally{
     await patch({...defaults,...original});await refresh();
   }

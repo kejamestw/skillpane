@@ -116,6 +116,8 @@ def read_record(path, aliases, home):
     name = string_field('name', path.parent.name)
     description = string_field('description', '')
     source, key, version, plugin = identify(path, home)
+    if len(name) > 200 or len(plugin) > 200:
+        raise ValueError('技能名稱或外掛識別超過支援長度。')
     signature = sha256(' '.join(description.split()).encode()).hexdigest()
     curated = (source == 'personal' and path == home / '.agents/skills' / name / 'SKILL.md'
                and GUIDE_SIGNATURES.get(name) == signature)
@@ -198,6 +200,10 @@ class Catalog:
                         if not within(canonical, boundaries) or not canonical.is_file() or canonical.stat().st_size > LIMIT:
                             skipped += 1
                             continue
+                        if any(EXCLUDED.intersection(canonical.relative_to(boundary).parts)
+                               for boundary in boundaries if canonical.is_relative_to(boundary)):
+                            skipped += 1
+                            continue
                         aliases[canonical].add(candidate)
                     except (OSError, ValueError, RuntimeError):
                         skipped += 1
@@ -267,6 +273,9 @@ class Catalog:
                                    'project_skills_scanned': False, 'activation_verified': False}}
 
     def content(self, skill_id):
+        return self.source_path(skill_id).read_text(encoding='utf-8-sig', errors='replace')
+
+    def source_path(self, skill_id):
         with self.lock:
             item = self.by_id.get(skill_id)
         if item is None:
@@ -275,4 +284,4 @@ class Catalog:
         canonical = path.resolve(strict=True)
         if canonical != path or not within(canonical, [r.resolve() for r in roots(self.home)]) or canonical.stat().st_size > LIMIT:
             raise ValueError('來源路徑已變更，請重新掃描。')
-        return canonical.read_text(encoding='utf-8-sig', errors='replace')
+        return canonical

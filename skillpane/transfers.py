@@ -62,6 +62,7 @@ class Transfers:
             raise ValueError('預覽已失效，請重新預覽。')
         if preview['revision'] != self.store.state['revision']:
             raise ValueError('資料已變更，請重新預覽後再套用。')
+        self.store.ensure_unchanged()
         return preview['payload']
 
     def export(self, state=None):
@@ -274,6 +275,7 @@ class Transfers:
 
     def preview_cleanup(self):
         with self.store.lock:
+            self.store.ensure_unchanged()
             keep = self.store.state['settings']['keep_last']
             candidates = self.backups()[keep:] if keep is not None else []
             fingerprints = {item['id']: sha256(self.backup_path(item['id']).read_bytes()).hexdigest() for item in candidates}

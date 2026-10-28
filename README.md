@@ -94,6 +94,8 @@ Windows junction 測試需允許建立工作目錄內的 junction；其他平台
 
 GitHub Actions 設定包含 Windows／Linux、Python 3.11／3.13 的單元與安全測試、JavaScript 語法檢查、Git 私有路徑檢查及全歷史 Gitleaks 掃描。這些自動檢查須推送後才會執行；流程與公開前檢查方式見 [開發指南](docs/DEVELOPMENT.md)。
 
+本機攻擊情境驗證、工具檢查與限制見 [安全測試紀錄](docs/SECURITY_TESTING.md)；測試通過不代表已接受獨立滲透測試或保證無漏洞。
+
 瀏覽器回歸驗證使用獨立服務，避免操作真實筆記：
 
 ```sh
