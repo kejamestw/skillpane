@@ -1,5 +1,21 @@
 # 安全測試紀錄
 
+## 0.4.0 掃描變更紀錄：遠端驗收
+
+`393fb5c661b764714d79551d0984bbd9b418c9e2` 的 [CI](https://github.com/kejamestw/skillpane/actions/runs/40879179409) 於 2026-10-29 21:08:12 至 21:26:32（台灣時間，UTC+8）完成，六項全部通過。Windows Python 3.11／3.13 各 123 項（122 通過、1 項 POSIX 平台略過），Linux 兩組各 123 項（114 通過、9 項平台略過）；Chromium 三種尺寸與 Firefox 桌面共 24 項通過，含變更紀錄及名稱注入純文字驗證。持鎖測試修正已在兩組 Windows 驗收。
+
+核對確切 SHA、必要步驟、Gitleaks 下載 checksum 與完整歷史機密掃描；六份日誌另在記憶體掃描通過，未保存原始日誌。回讀 repository 維持私人、該 run 沒有 artifacts。本機 Firefox 的 Windows SideBySide／mozglue 啟動問題仍未修復；遠端 Linux Firefox 通過不代表本機環境已修復。
+
+## 0.4 開發流程與文件分流：完整 CI 驗收
+
+`2bbdbf64026badedd0e6ad3f271d76da69960fdf` 的 [完整 CI](https://github.com/kejamestw/skillpane/actions/runs/40889112628) 於 2026-10-29 22:34:00 至 2026-10-29 22:52:54（台灣時間，UTC+8）完成，八項工作全部成功。Windows Python 3.11／3.13 各 135 項（134 通過、1 項 POSIX 平台略過），Linux 兩組各 135 項（126 通過、9 項平台略過）；Chromium 三種尺寸與 Firefox 桌面共 24 項通過。
+
+分流工作另執行十項分類測試、兩項文件連結測試與相對連結檢查，實際選擇 `full=true`。確認 secrets 的完整歷史掃描、Gitleaks checksum 與最終 validation 成功；八份工作日誌另在記憶體掃描通過，未保存原始日誌。回讀 repository 維持私人、該 run 沒有 artifacts，未變更 GitHub 設定。
+
+這是相同提交的第二次完整執行。首次執行的 Windows Python 3.13 在持鎖案例最初的 `self.start()` 超過 60 秒，當時尚未建立持鎖程序；其他三組 Python、browser 與 secrets 成功，最終 validation 正確判失敗。[首次執行紀錄](https://github.com/kejamestw/skillpane/actions/runs/40889112628/attempts/1) 保留。本機單獨重驗該案例於 13.014 秒通過；維持原 60 秒限制及所有案例，沒有修改程式後重跑。首次啟動超時的根因尚未確認；第二次成功不代表間歇性問題已修復。
+
+本批本機全套亦為 135 項（134 通過、1 項平台略過）；候選 84 個檔案與含新提交的完整可到達歷史分別掃描通過。Bandit 1.9.4 為 0 高、0 中、8 低；新增兩個開發腳本各有 subprocess import／參數陣列呼叫提示，已確認可信 PATH、固定子命令、完整 SHA 驗證、30 秒限制及未開 shell，沒有用 nosec 或排除規則隱藏。下方較早的 4 低紀錄保留當時範圍。純文件分流尚需下一筆真正的文件提交另驗收，不把預期 skipped 當成執行測試通過，也不將本次內部驗證稱為獨立滲透測試。
+
 ## 0.3.3 Windows 啟動器
 
 ### 遠端 CI 追蹤
@@ -127,7 +143,7 @@ gitleaks git . --log-opts=--all --redact=100 --no-banner --exit-code 1
 
 ## 後續關卡
 
-0.4 本機驗證：123 項 Python 測試（122 通過、1 項 POSIX 平台案例略過），持鎖測試修正後另單獨重驗通過；Chromium 桌面、低高度及手機共 18 項瀏覽器測試通過，桌面與手機合成預覽已人工檢視。本機 Firefox 在啟動前遇 Windows SideBySide／mozglue 相依錯誤，六項未通過，不以 Chromium 代替 Firefox 驗收；仍須查看確切提交的 Linux Firefox CI。Bandit 維持 0 高、0 中、4 低；候選檔、可到達歷史、公開路徑及 actionlint 檢查通過，後續提交仍須重掃。
+0.4 本機驗證：123 項 Python 測試（122 通過、1 項 POSIX 平台案例略過），持鎖測試修正後另單獨重驗通過；Chromium 桌面、低高度及手機共 18 項瀏覽器測試通過，桌面與手機合成預覽已人工檢視。本機 Firefox 六項因啟動相依錯誤未通過；該提交的 Linux Firefox 已於上方 CI 驗收。Bandit 當時為 0 高、0 中、4 低；候選檔、可到達歷史、公開路徑及 actionlint 檢查通過，後續提交仍須重掃。
 
 0.4 新增掃描紀錄的負向驗證：損壞、重複鍵、未支援格式、超大檔、外部改寫、原子替換失敗、路徑連結與並行重掃；確認原檔保留、技能唯讀、私有檔不可透過靜態資源讀取、跨來源重掃被拒絕。瀏覽器另驗證名稱注入以純文字顯示。這是內部合成測試，不是獨立滲透測試；仍不保證抵禦惡意本機程序同時替換檔案。
 

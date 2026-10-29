@@ -8,6 +8,8 @@ A local Agent Skills library with a Traditional Chinese interface. Browse person
 
 All screenshots use fictional skills and notes. Start with the [three-minute tour](docs/QUICK_TOUR.md) (Chinese) for browsing, reusable prompts and backups. The tour includes a mobile viewport and the prompt editor; the interface itself is currently Traditional Chinese.
 
+The tour also shows [scan history](docs/QUICK_TOUR.md#6-看最近的技能變更) with synthetic added, changed and no-longer-observed events.
+
 ## Run locally
 
 Use a currently security-supported Python release (3.11 or newer recommended). There are no third-party runtime dependencies or frontend build steps.

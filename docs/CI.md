@@ -1,6 +1,6 @@
 # CI 驗證流程與文件分流
 
-本批流程須推送後以確切提交驗收 GitHub runner，本機模擬不代表遠端已通過。Repository 維持私人，未修改 branch protection 或其他 GitHub 設定。
+完整流程已以確切提交驗收 GitHub runner，證據如下；純文件流程仍待下一筆真正的文件／PNG 提交驗收。Repository 維持私人，未修改 branch protection 或其他 GitHub 設定。
 
 ## 耗時依據
 
@@ -44,4 +44,12 @@ actionlint -shellcheck= -pyflakes= .github/workflows/ci.yml
 
 合成 Git 歷史涵蓋 push、PR merge-base 與缺失基準；負向測試涵蓋混合路徑、無效編碼／字元、空差異、無效事件及工作結果組合。相對連結檢查讀取 Git 追蹤／未忽略候選 Markdown，檢查行內檔案／圖片及 HTML img，不連外、不驗證 fragment。
 
-本批包含 CI 腳本與工作流程，推送後應選完整模式，核對八項工作及全部測試。後續還需真正的純文件提交確認 skipped 與 validation；本機分類測試不等於 GitHub 編排已驗收。手動 workflow_dispatch 永遠全跑，不能用來驗證文件捷徑。
+本批包含 CI 腳本與工作流程，其完整模式已依下列提交驗收。後續還需真正的純文件提交確認 skipped 與 validation；本機分類測試不等於文件流程的 GitHub 編排已驗收。手動 workflow_dispatch 永遠全跑，不能用來驗證文件捷徑。
+
+## 本批完整流程：遠端證據
+
+`2bbdbf64026badedd0e6ad3f271d76da69960fdf` 的 [完整 CI](https://github.com/kejamestw/skillpane/actions/runs/40889112628) 於 2026-10-29 22:34:00 至 2026-10-29 22:52:54（台灣時間，UTC+8）完成，八項工作全部成功。Windows Python 3.11／3.13 各 135 項（134 通過、1 項 POSIX 平台略過），Linux 兩組各 135 項（126 通過、9 項平台略過）；Chromium 三種尺寸與 Firefox 桌面共 24 項通過。
+
+分流工作另執行十項分類測試、兩項文件連結測試與相對連結檢查，實際選擇 `full=true`。確認 secrets 的完整歷史掃描、Gitleaks checksum 與最終 validation 成功；八份工作日誌另在記憶體掃描通過，未保存原始日誌。回讀 repository 維持私人、該 run 沒有 artifacts，未變更 GitHub 設定。
+
+這是相同提交的第二次完整執行。首次執行的 Windows Python 3.13 在持鎖案例最初的 `self.start()` 超過 60 秒，當時尚未建立持鎖程序；其他三組 Python、browser 與 secrets 成功，最終 validation 正確判失敗。[首次執行紀錄](https://github.com/kejamestw/skillpane/actions/runs/40889112628/attempts/1) 保留。本機單獨重驗該案例於 13.014 秒通過；維持原 60 秒限制及所有案例，沒有修改程式後重跑。首次啟動超時的根因尚未確認；第二次成功不代表間歇性問題已修復。

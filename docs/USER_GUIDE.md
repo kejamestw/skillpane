@@ -142,6 +142,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Stop.ps1 -Port 8767
 
 ## 10. 技能變更紀錄
 
+![技能變更紀錄的合成範例，時間與技能皆為展示資料](images/changes.png)
+
 側欄「變更紀錄」提供名稱／來源搜尋、事件類型篩選及重新掃描。時間標示為台灣時間。「查看目前技能」會帶回目前詳情並保留未儲存筆記，找不到對應技能時不提供按鈕。
 
 | 類型 | 代表的觀察 |
