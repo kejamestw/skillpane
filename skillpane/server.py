@@ -13,6 +13,9 @@ from .library import Library
 from .transfers import Transfers
 
 PROJECT = Path(__file__).resolve().parent.parent
+# Both old and new lists can contain 20 prompts. Allow escaped Unicode at the
+# existing field limits without removing a bounded request size.
+ANNOTATION_REQUEST_LIMIT = 2 * 1024 * 1024
 ASSETS = {'/': ('index.html', 'text/html; charset=utf-8'),
           '/app.js': ('app.js', 'text/javascript; charset=utf-8'),
           '/management.js': ('management.js', 'text/javascript; charset=utf-8'),
@@ -235,7 +238,7 @@ class Handler(BaseHTTPRequestHandler):
             self.json({'error': '找不到要整理的技能。'}, 404)
             return
         try:
-            payload = self.body()
+            payload = self.body(ANNOTATION_REQUEST_LIMIT)
             expected = None
             if isinstance(payload, dict) and 'prompts' in payload:
                 expected = payload.pop('prompts_base')
