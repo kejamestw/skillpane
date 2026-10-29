@@ -20,6 +20,8 @@ python -m skillpane
 
 Open `http://127.0.0.1:8766/`. Use `--port` to choose another port. Private repositories require account access; never place a token in a clone URL. On Windows, double-click `Open-Skillpane.cmd`, or run `Start.ps1 -NoBrowser`; use `Stop.ps1` to stop that launcher instance. On macOS/Linux, stop the foreground process with Ctrl+C.
 
+Since 0.3.3, both Windows scripts accept `-Port 8767`. Stop the existing service before changing ports; the launcher manages one instance per checkout. The launcher validates process creation time, Python and the absolute checkout entry point, and checks socket ownership before reporting readiness. Occupied ports are rejected rather than adopted. Stop older background services with the previous launcher before upgrading: live legacy process records are deliberately not adopted by the new scripts.
+
 ## What it does
 
 - Scans user-level `.agents/skills`, `.codex/skills`, `.claude/skills`, and `.codex/plugins/cache` under the current home directory.

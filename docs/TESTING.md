@@ -17,7 +17,28 @@ GitHub 的四組矩陣為 Windows／Linux × Python 3.11／3.13。`tests/test_li
 | 不含提示詞的 format 2 | 舊自訂欄位／比較／設定延續、新增提示詞、可攜備份匯出、預覽與套用、重啟後完整保留 |
 | 損壞／未來格式 | 仍可讀技能、拒絕整理寫入，啟停期間保留原檔 |
 
-所有案例另核對合成 SKILL.md 指紋不變。這驗證新版對舊資料格式的相容性，不表示執行了所有歷史版本 binary、Python 安裝程式、Windows 雙擊啟動器或每種 OS 設定。Windows `Start.ps1`／`Stop.ps1` 的互動及 PID 身分檢查仍需適用環境人工驗收；自動測試使用真正的跨平台 CLI。
+所有案例另核對合成 SKILL.md 指紋不變。這驗證新版對舊資料格式的相容性，不表示執行了所有歷史版本 binary、Python 安裝程式或每種 OS 設定。跨平台 CLI 與下述 Windows 啟動器分別測試；雙擊 `.cmd`、實際開啟瀏覽器及其他 OS 桌面互動仍需人工驗收。
+
+## Windows 啟動器
+
+`tests/test_launcher.py` 在 Windows 執行八個真實子程序案例，自動納入原有 Windows Python CI；Linux 明確略過。每案將程式與啟動腳本複製到含空白及中文的獨立路徑，只使用合成 home、整理資料與非 8766 的 OS 配發測試連接埠。測試只停止本案自己啟動、保留原始身分紀錄的服務，不以被篡改的 PID 執行清理。
+
+| 案例 | 驗證 |
+| --- | --- |
+| 啟停與重啟 | 健康、合成技能、重複啟動不改紀錄及資料、連續停止、重啟延續識別 |
+| 錯誤連接埠與篡改紀錄 | 建立時間、root、port、Python、PID 型別及未支援版本不符時拒絕，原服務繼續回應 |
+| 其他 checkout | 改寫紀錄 root 仍不能接管或停止另一份程式 |
+| 連接埠占用 | 一般服務及偽裝成 Skillpane 的健康回應都被拒絕，不建立整理資料 |
+| 缺少／損壞／舊格式紀錄 | 無紀錄停止不做事，無效連接埠拒絕；損壞或仍指向活程序的舊紀錄不自動改寫 |
+| 啟動失敗 | 子程序錯誤不回報 ready，不遺留可連線服務 |
+| 同時操作 | 另一程序持有 launcher.lock 時，啟動及停止都拒絕，原服務與紀錄保留 |
+| PowerShell 7 | 和 Windows PowerShell 5.1 共用紀錄及程序身分驗證；未安裝 7 時略過此案 |
+
+單獨執行：`python -B -m unittest discover -s tests -p test_launcher.py -v`。呼叫啟動器使用檔案捕捉診斷，不以 pipe EOF 判定背景服務已停止；診斷及合成產物只留在忽略目錄。測試使用 `-NoBrowser`，沒有驗證雙擊及預設瀏覽器開啟。
+
+啟動器依賴 Windows 的 CIM 與 NetTCPIP 查詢；查詢不可用時拒絕操作，不把查詢失敗當成沒有程序或空閒連接埠。程序身分檢查不是對惡意同帳號程式的隔離；舊格式活程序需先由升級前啟動器停止。
+
+啟動參數的引號及監聽查詢依據：[Microsoft Start-Process](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.management/start-process?view=powershell-7.5)、[Get-NetTCPConnection](https://learn.microsoft.com/en-us/powershell/module/nettcpip/get-nettcpconnection?view=windowsserver2025-ps)。程序 handle 的生命週期見 [Process 類別](https://learn.microsoft.com/en-US/dotnet/api/System.Diagnostics.Process)。
 
 ## 掃描邊界
 

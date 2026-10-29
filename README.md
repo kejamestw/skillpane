@@ -29,6 +29,8 @@ python -m skillpane
 
 Windows 可雙擊 `Open-Skillpane.cmd`。啟動器優先使用 `SKILLPANE_PYTHON` 指定的 Python、Codex 內附 Python，再尋找 PATH 上的 Python；使用 `Start.ps1 -NoBrowser` 可只啟動服務。停止服務執行 `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Stop.ps1`。
 
+0.3.3 起，Windows 啟停腳本都支援 `-Port 8767`；啟動器在同一 checkout 只管理一個服務，換連接埠前先停止原服務。啟停會核對程序建立時間、Python、專案啟動入口與紀錄，啟動另確認監聽程序；連接埠已被其他服務占用時拒絕，不接管既有服務。升級前請先用舊版啟動器停止背景服務，新版不接管仍執行中的舊格式程序紀錄。
+
 ## 功能
 
 - 預設瀏覽個人技能，另列 Claude 同步、系統內建與外掛快取。

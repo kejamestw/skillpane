@@ -12,6 +12,8 @@
 | `skillpane/server.py` | loopback HTTP、同源驗證與資源允許清單 |
 | `web/` | 無建置流程的 HTML、CSS、原生 JavaScript modules |
 | `tests/` | 合成資料測試與瀏覽器回歸腳本 |
+| `Start.ps1`、`Stop.ps1`、`scripts/Launcher.ps1` | Windows 啟停、排他鎖、程序及監聽身分驗證 |
+| `scripts/launcher_entry.py` | Windows 絕對啟動入口，供命令列核對 checkout |
 | `.data/`、`.runtime/` | 忽略於 Git 的個人資料與執行產物 |
 
 一個 checkout 同時只執行一個服務。儲存採程序內 lock、外部變更指紋檢查、原子替換與備份；不提供跨程序鎖或共享資料庫的隔離保證。
