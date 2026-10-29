@@ -35,6 +35,9 @@ def main():
     for number in range(150):
         name = f'fixture-{number:03}'
         write(f'.agents/skills/{name}', name, f'Synthetic API helper number {number:03}')
+    # Vendored copies below an actual skill must not change list/search counts.
+    write('.agents/skills/fixture-000/vendor/mirror', 'fixture-149', 'Nested fixture copy')
+    write('.agents/skills/fixture-000/.cursor/skills/mirror', 'fixture-000', 'Nested agent mirror')
     description = "This skill encodes Emil Kowalski's philosophy on UI polish, component design, animation decisions, and the invisible details that make software feel great."
     write('.agents/skills/emil-design-eng', 'emil-design-eng', description)
     write('.agents/skills/design-helper', 'design-helper', 'A synthetic motion helper')

@@ -7,6 +7,7 @@ from __future__ import annotations
 from collections import defaultdict
 from datetime import datetime, timezone
 from hashlib import sha256
+import os
 from pathlib import Path
 import re
 import threading
@@ -51,6 +52,41 @@ def short_path(path: Path, home: Path) -> str:
 
 def within(path: Path, boundaries) -> bool:
     return any(path.is_relative_to(root) for root in boundaries)
+
+
+def iter_skill_files(root, boundaries, on_skip):
+    """Stop at skill boundaries; validate links before entering a directory.
+
+    Each branch tracks canonical ancestors so allowed aliases remain visible
+    across roots without following directory cycles. A SKILL.md boundary is
+    honored even if that file is later rejected: nested copies must not become
+    standalone skills merely because the outer metadata is unreadable.
+    """
+    pending = [(root, frozenset())]
+    while pending:
+        directory, ancestors = pending.pop()
+        try:
+            if EXCLUDED.intersection(directory.relative_to(root).parts):
+                continue
+            canonical = directory.resolve(strict=True)
+            if (not within(canonical, boundaries) or canonical in ancestors
+                    or any(EXCLUDED.intersection(canonical.relative_to(boundary).parts)
+                           for boundary in boundaries if canonical.is_relative_to(boundary))):
+                on_skip()
+                continue
+            with os.scandir(directory) as stream:
+                entries = sorted(stream, key=lambda entry: entry.name.casefold())
+            markers = [entry for entry in entries
+                       if os.path.normcase(entry.name) == os.path.normcase('SKILL.md')
+                       and not entry.is_dir()]
+            if markers:
+                yield directory / markers[0].name
+                continue
+            lineage = ancestors | {canonical}
+            pending.extend((directory / entry.name, lineage) for entry in reversed(entries)
+                           if entry.name not in EXCLUDED and entry.is_dir())
+        except (OSError, ValueError, RuntimeError):
+            on_skip()
 
 
 def identify(path: Path, home: Path):
@@ -187,11 +223,14 @@ class Catalog:
         root_paths = roots(self.home)
         boundaries = [r.resolve() for r in root_paths]
         aliases, skipped = defaultdict(set), 0
+        def count_skip():
+            nonlocal skipped
+            skipped += 1
         for root in root_paths:
             if not root.is_dir():
                 continue
             try:
-                candidates = root.rglob('SKILL.md')
+                candidates = iter_skill_files(root, boundaries, count_skip)
                 for candidate in candidates:
                     if EXCLUDED.intersection(candidate.relative_to(root).parts):
                         continue
@@ -270,6 +309,8 @@ class Catalog:
             return {'skills': public, 'stats': dict(self.stats), 'overlaps': list(self.overlaps),
                     'generated_at': self.generated_at, 'related_groups': list(self.related_groups),
                     'scan_scope': {'roots': [short_path(p, self.home) for p in roots(self.home)],
+                                   'skill_boundary': 'first-skill-file',
+                                   'nested_skills_scanned': False,
                                    'project_skills_scanned': False, 'activation_verified': False}}
 
     def content(self, skill_id):

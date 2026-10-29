@@ -19,6 +19,12 @@ GitHub 的四組矩陣為 Windows／Linux × Python 3.11／3.13。`tests/test_li
 
 所有案例另核對合成 SKILL.md 指紋不變。這驗證新版對舊資料格式的相容性，不表示執行了所有歷史版本 binary、Python 安裝程式、Windows 雙擊啟動器或每種 OS 設定。Windows `Start.ps1`／`Stop.ps1` 的互動及 PID 身分檢查仍需適用環境人工驗收；自動測試使用真正的跨平台 CLI。
 
+## 掃描邊界
+
+`tests/test_scan_boundaries.py` 以六項合成案例驗證：含 SKILL.md 的技能資料夾停止向下掃描；沒有該檔案的集合、系統與外掛版本目錄仍展開；進入目錄前排除範圍外路徑與被排除目錄；合法連結別名保留，循環停止；無效的外層技能不使內附副本變成獨立技能；先前副本的筆記與收藏仍以未關聯資料保留。
+
+這是面板的清單邊界，不推定各工具的載入行為。測試核對合成技能位元組不變；不使用真實技能、筆記或提示詞。0.3.2 的瀏覽器 fixture 另外放入兩個巢狀鏡像，核心案例確認它們不影響總數，也確認範圍說明可見。
+
 ## 瀏覽器
 
 使用 Node 22 以上（CI 固定 Node 24）與可由 `python` 呼叫的 Python：
@@ -57,3 +63,25 @@ npm run test:browser -- --project=chromium-desktop
 維護新版本時先跑受影響案例，再執行必要完整回歸；本機驗證不取代遠端矩陣。發布前仍須檢查候選檔案、Git 歷史與公開邊界，這些測試不是零漏洞證明或獨立安全審查。
 
 依據：[Playwright 安裝](https://playwright.dev/docs/intro)、[測試瀏覽器](https://playwright.dev/docs/browsers)。
+
+## 文件展示素材
+
+README 與操作導覽的三張 PNG 使用正式前端及 `scripts/demo_fixture.py` 的虛構資料：六個個人技能、一個內建項目、自訂中文名稱、筆記與一筆常用提示詞。掃描時間固定為示範值，不使用真實技能或原始作者內容。
+
+只預覽合成展示需要 Python，不需要 Node：
+
+```sh
+python -B scripts/demo_fixture.py
+```
+
+開啟終端印出的動態 loopback 位址，以 Ctrl+C 停止。每次建立新的 `.runtime/docs-demo-*`，不讀取既有個人整理資料，不占用正式 8766，也不自動清理歷次合成產物。
+
+重製圖片需先依上方步驟安裝鎖定的開發套件與 Chromium，再執行：
+
+```sh
+node scripts/capture-docs.cjs
+```
+
+同樣支援 `SKILLPANE_TEST_PYTHON` 與 `PLAYWRIGHT_BROWSERS_PATH`。腳本只連自己啟動的全新合成服務，不接受外部 base URL；確認展示標記及項目數、封鎖外部請求、檢查未捕捉錯誤與合成原文不變。圖片寫入 `docs/images/desktop.png`、`prompt-editor.png`、`mobile.png`，會取代同名素材；更新後需人工逐張檢視，再檢查 Git 候選檔案。PNG 不包含瀏覽器網址列；不要用真實面板截圖替換。
+
+這是手動執行的文件產生流程，未加入 CI，也不改變 CI 不錄製／上傳畫面的政策。PNG 內容需要來源控管及人工視覺檢查，文字型機密掃描不能代替這項檢查；字型可能隨 OS 改變。手機圖僅為視窗模擬。

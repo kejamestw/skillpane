@@ -4,6 +4,10 @@ A local Agent Skills library with a Traditional Chinese interface. Browse person
 
 [繁體中文](README.md) · [User guide (Chinese)](docs/USER_GUIDE.md) · [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md)
 
+![Skillpane desktop library with synthetic skills, invocation references, saved prompts and notes](docs/images/desktop.png)
+
+All screenshots use fictional skills and notes. Start with the [three-minute tour](docs/QUICK_TOUR.md) (Chinese) for browsing, reusable prompts and backups. The tour includes a mobile viewport and the prompt editor; the interface itself is currently Traditional Chinese.
+
 ## Run locally
 
 Use a currently security-supported Python release (3.11 or newer recommended). There are no third-party runtime dependencies or frontend build steps.
@@ -29,6 +33,8 @@ Open `http://127.0.0.1:8766/`. Use `--port` to choose another port. Private repo
 - Keeps source skills read-only. Personal organization data and backups live in the ignored `.data/` directory.
 
 The UI is currently Traditional Chinese only. Project-local skills, usage tracking, skill installation/deletion, automatic merging and remote hosting are not implemented. The app is an early release, not an independent security audit or a guarantee that installed skills are safe.
+
+Since 0.3.2, scanning stops at a directory containing `SKILL.md`; nested vendored copies and agent mirrors do not become additional skills. Containers without that file still expand. Excluded directories and out-of-scope links are pruned before traversal, with cycle detection and alias deduplication. This is an inventory policy, not proof of a tool's actual discovery rules. Notes for previously indexed nested copies remain available as orphaned organization data. See the [roadmap (Chinese)](docs/ROADMAP.md) for the next steps.
 
 ## Privacy and security
 

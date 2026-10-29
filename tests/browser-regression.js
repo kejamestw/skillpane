@@ -21,6 +21,7 @@ async function runSkillpaneRegression() {
   const other=snapshot.skills.find(s=>s.name==='fixture-149');
   const originalTheme=localStorage.getItem('skillpane-theme');
   const digest=JSON.stringify(snapshot.skills.map(s=>[s.id,s.sha256]));
+  check(snapshot.skills.length===154 && !snapshot.skills.some(s=>s.description.startsWith('Nested ')),'技能內附副本不膨脹清單與搜尋數量');
   await until(()=>rows().length>0,'initial list');
   view('personal');search('fixture-000');
   check(rows().length===1 && rows()[0].dataset.skill===fixture.id,'搜尋僅顯示符合項目');
@@ -121,6 +122,7 @@ async function runSkillpaneRegression() {
   $('#scopeButton').click();
   check($('#scopeDialog').open && $('#scopeRoots').children.length===4,'掃描範圍可從面板查看');
   check($('#scopeDialog').textContent.includes('未掃描各專案'),'掃描範圍說明不宣稱涵蓋專案');
+  check($('#scopeDialog').textContent.includes('不再往下掃描'),'掃描範圍說明技能資料夾邊界');
   $('#closeScope').click();
   const theme=$('#themeSelect');theme.value='dark';theme.dispatchEvent(new Event('change',{bubbles:true}));
   check(document.documentElement.dataset.theme==='dark','深色主題可切換');
