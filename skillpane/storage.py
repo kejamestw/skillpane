@@ -20,6 +20,10 @@ TEXT_LIMITS = {'note': 4000, 'alias': 100, 'summary': 600, 'category': 40,
 SOURCES = {'personal', 'managed', 'system', 'plugin', 'unknown'}
 
 
+class PromptConflict(ValueError):
+    """An editor must not overwrite prompts saved by another window."""
+
+
 def strict_json_loads(text):
     def unique(pairs):
         result = {}
@@ -68,7 +72,7 @@ def valid_time(value):
 
 
 def validate_annotation(payload):
-    if not isinstance(payload, dict) or set(payload) - (set(TEXT_LIMITS) | {'favorite', 'status', 'tags', 'display_mode', 'modifies_files'}):
+    if not isinstance(payload, dict) or set(payload) - (set(TEXT_LIMITS) | {'favorite', 'status', 'tags', 'display_mode', 'modifies_files', 'prompts'}):
         raise ValueError('整理資料包含不支援的欄位。')
     if 'favorite' in payload and type(payload['favorite']) is not bool:
         raise ValueError('收藏狀態格式錯誤。')
@@ -98,6 +102,18 @@ def validate_annotation(payload):
                 raise ValueError()
         except ValueError:
             raise ValueError('來源網址請使用不含帳密或憑證參數的 http／https 網址。') from None
+    if 'prompts' in payload:
+        prompts = payload['prompts']
+        if not isinstance(prompts, list) or len(prompts) > 20:
+            raise ValueError('每個技能最多保存 20 筆提示詞。')
+        ids = set()
+        for prompt in prompts:
+            if not isinstance(prompt, dict) or set(prompt) != {'id', 'title', 'body'} or not valid_id(prompt['id']) or prompt['id'] in ids:
+                raise ValueError('提示詞識別錯誤或重複。')
+            ids.add(prompt['id'])
+            for field, limit in [('title', 80), ('body', 4000)]:
+                if not isinstance(prompt[field], str) or not prompt[field].strip() or len(prompt[field]) > limit or '\x00' in prompt[field]:
+                    raise ValueError('提示詞須填名稱與內容，名稱最多 80 字、內容最多 4000 字。')
     return clone(payload)
 
 
@@ -258,11 +274,15 @@ class Annotations:
             if current_digest != self.disk_digest:
                 raise ValueError('整理資料已由其他程序變更，請重新啟動面板後再操作。')
 
-    def update(self, skill_id, payload):
+    def update(self, skill_id, payload, *, expected_prompts=None):
         validate_annotation(payload)
+        if expected_prompts is not None:
+            validate_annotation({'prompts': expected_prompts})
         if not valid_id(skill_id):
             raise ValueError('技能識別格式錯誤。')
         with self.lock:
+            if expected_prompts is not None and self.state['annotations'].get(skill_id, {}).get('prompts', []) != expected_prompts:
+                raise PromptConflict('提示詞已在其他視窗更新，請重新開啟編輯；目前草稿會保留。')
             next_state = clone(self.state)
             next_state['annotations'][skill_id] = {**next_state['annotations'].get(skill_id, {}), **payload}
             self.commit(next_state)

@@ -3,7 +3,7 @@ let context;
 const $=selector=>document.querySelector(selector);
 const esc=value=>String(value ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fields=['alias','summary','category','tags','origin_reason','source_url','scope_note','modifies_files','display_mode'];
-const names={favorite:'收藏',status:'整理狀態',note:'筆記',alias:'名稱',summary:'摘要',category:'分類',tags:'標籤',origin_reason:'加入原因',source_url:'來源網址',scope_note:'工作範圍',modifies_files:'是否改檔',display_mode:'顯示方式'};
+const names={favorite:'收藏',status:'整理狀態',note:'筆記',alias:'名稱',summary:'摘要',category:'分類',tags:'標籤',origin_reason:'加入原因',source_url:'來源網址',scope_note:'工作範圍',modifies_files:'是否改檔',display_mode:'顯示方式',prompts:'常用提示詞'};
 const decisions={'keep-both':'保留兩者，分工不同','consider-merge':'考慮合併','checked':'已檢查'};
 const metaDrafts=new Map(), compareDrafts=new Map();
 let editingId, importPreview, relinkPreview, cleanupPreview, compareRequest=0;
@@ -120,7 +120,7 @@ function targetOptions(row, filter=''){
 function annotationView(value){
   if(!Object.keys(value).length)return '<p class="helper-text">尚無整理資訊</p>';
   const labels={status:{keep:'保留使用',review:'待檢查',merge:'考慮合併',archive:'考慮封存'},display_mode:{default:'面板預設',original:'原始名稱與描述'},modifies_files:{unknown:'未知',yes:'會修改檔案',no:'維持唯讀'}};
-  return '<dl class="annotation-preview">'+Object.entries(value).map(([key,content])=>`<dt>${esc(names[key] || key)}</dt><dd>${esc(key==='favorite'?content?'已收藏':'未收藏':Array.isArray(content)?content.join('、'):labels[key]?.[content] || content || '（留白）')}</dd>`).join('')+'</dl>';
+  return '<dl class="annotation-preview">'+Object.entries(value).map(([key,content])=>`<dt>${esc(names[key] || key)}</dt><dd>${esc(key==='prompts'?content.length?content.map(prompt=>prompt.title+'\n'+prompt.body).join('\n\n'):'（尚無提示詞）':key==='favorite'?content?'已收藏':'未收藏':Array.isArray(content)?content.join('、'):labels[key]?.[content] || content || '（留白）')}</dd>`).join('')+'</dl>';
 }
 function payloadChoice(id){return $(`[data-import-choice="${id}"]`)?.value;}
 function updateImportDiff(row){

@@ -11,7 +11,7 @@ async function runSecurityRegression(){
   const assert=(value,name)=>{if(!value)throw new Error(name);checks.push(name);};
   const until=async test=>{const end=performance.now()+30000;while(!test()){if(performance.now()>end)throw new Error('UI timeout');await new Promise(resolve=>setTimeout(resolve,40));}};
   const refresh=async()=>{document.querySelector('#refreshButton').click();await until(()=>!document.querySelector('#refreshButton').disabled);};
-  const patch=value=>api('/api/annotation?id='+skill.id,{method:'PATCH',body:JSON.stringify(value)});
+  const patch=async value=>{if('prompts' in value){const current=await api();value={...value,prompts_base:current.annotations[skill.id]?.prompts || []};}return api('/api/annotation?id='+skill.id,{method:'PATCH',body:JSON.stringify(value)});};
   try{
     for(const payload of payloads){
     await patch({alias:payload,summary:payload,category:'安全測試',tags:['tag<img src=x>'],origin_reason:payload,scope_note:payload,note:payload});

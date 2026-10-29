@@ -20,7 +20,9 @@ Open `http://127.0.0.1:8766/`. Use `--port` to choose another port. Private repo
 
 - Scans user-level `.agents/skills`, `.codex/skills`, `.claude/skills`, and `.codex/plugins/cache` under the current home directory.
 - Deduplicates physical aliases and collapses plugin cache versions. Cached files do not prove that a skill is currently activated.
-- Searches names, descriptions, categories, tags and saved notes; offers favorites and organization markers.
+- Searches names, descriptions, categories, tags, saved notes and personal prompts; offers favorites and organization markers.
+- Saves multiple reusable prompts per skill, with multiline editing, copying and backups. Notes remain separate from prompts and panel examples.
+- Offers three text sizes and a collapsible sidebar, with browser-local preferences.
 - Distinguishes original text, curated translations and user overrides; shows invocation declarations with source evidence.
 - Provides stable local identities, previewed imports and restores, and explicit relinking for orphaned notes.
 - Compares two skills and their plain-text differences; saves conclusions and flags changed content.
@@ -34,12 +36,15 @@ The server binds only to IPv4 loopback and rejects untrusted Host/Origin request
 
 Portable backups omit skill bodies and structural local path fields, but include saved notes and other user-entered text. Neither export format anonymizes arbitrary text or guarantees secret removal. Do not upload `.data/`, `.runtime/`, backups or real skill contents. Read [privacy](docs/PRIVACY.md) and [security](SECURITY.md) before sharing material.
 
+Version 0.3 retains data/backup format 2 with an optional personal-prompts field. Data containing prompts requires Skillpane 0.3 or newer. Prompts are stored as text and never executed by the panel.
+
 ## Development
 
 ```sh
 python -B -m unittest discover -s tests -v
 node --check web/app.js
 node --check web/management.js
+node --check web/prompts.js
 python scripts/check_publication.py --history --include-untracked
 ```
 

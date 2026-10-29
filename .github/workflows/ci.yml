@@ -29,9 +29,11 @@ jobs:
         run: |
           node --check web/app.js
           node --check web/management.js
+          node --check web/prompts.js
           node --check tests/browser-regression.js
           node --check tests/browser-management.js
           node --check tests/browser-security.js
+          node --check tests/browser-prompts.js
       - name: Publication boundaries
         run: python scripts/check_publication.py
 

@@ -1,4 +1,5 @@
 import {customize, organizationHtml, historyHtml, loadSourceEvidence, initializeManagement} from './management.js';
+import {promptsHtml, initializePrompts} from './prompts.js';
 
 const paths = {
   grid:'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z',
@@ -23,6 +24,7 @@ const paths = {
   close:'m6 6 12 12 M18 6 6 18',
   lock:'M6 10h12v11H6z M8 10V6a4 4 0 0 1 8 0v4 M12 15v2',
   info:'M12 8v.01 M12 11v6 M22 12a10 10 0 1 1-20 0 10 10 0 0 1 20 0Z',
+  sidebar:'M3 4h18v16H3z M9 4v16 M5.5 8h1 M5.5 12h1',
 };
 const icon = (name) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${paths[name] || paths.grid}"/></svg>`;
 const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -56,6 +58,20 @@ function setTheme(theme) {
 setTheme(state.theme);
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => setTheme(state.theme));
 
+function setTextSize(value){
+  const size=['standard','large','extra-large'].includes(value)?value:'standard';
+  document.documentElement.dataset.textSize=size;
+  localStorage.setItem('skillpane-text-size',size);$('#textSizeSelect').value=size;
+}
+function setSidebar(hidden){
+  $('.app-shell').classList.toggle('sidebar-hidden',hidden);
+  const button=$('#sidebarToggle'),label=hidden?'顯示側邊欄':'隱藏側邊欄';
+  button.setAttribute('aria-expanded',String(!hidden));button.setAttribute('aria-label',label);button.title=label;
+  localStorage.setItem('skillpane-sidebar-hidden',hidden?'1':'0');
+}
+setTextSize(localStorage.getItem('skillpane-text-size'));
+setSidebar(localStorage.getItem('skillpane-sidebar-hidden')==='1');
+
 function toast(message) {
   clearTimeout(toastTimer);
   $('#toast').textContent = message;
@@ -68,7 +84,7 @@ async function api(url, options={}) {
     ...options, headers:{'Content-Type':'application/json','X-Skillpane-Client':'1',...options.headers},
   });
   const payload = await response.json();
-  if (!response.ok) throw new Error(payload.error || '操作未完成，請稍後再試。');
+  if (!response.ok) {const error=new Error(payload.error || '操作未完成，請稍後再試。');error.status=response.status;throw error;}
   return payload;
 }
 
@@ -110,7 +126,7 @@ function matches(skill) {
     if (label !== state.filter) return false;
   }
   if (!state.query) return true;
-  return [skill.name,skill.display_name,skill.summary,skill.description,skill.source_label,skill.category,skill.plugin,annotations(skill).note || '',...(annotations(skill).tags || []),annotations(skill).origin_reason || '',annotations(skill).scope_note || ''].join(' ').toLowerCase().includes(state.query);
+  return [skill.name,skill.display_name,skill.summary,skill.description,skill.source_label,skill.category,skill.plugin,annotations(skill).note || '',...(annotations(skill).tags || []),annotations(skill).origin_reason || '',annotations(skill).scope_note || '',...(annotations(skill).prompts || []).flatMap(prompt=>[prompt.title,prompt.body])].join(' ').toLowerCase().includes(state.query);
 }
 
 function filteredSkills() {
@@ -226,9 +242,10 @@ function guideHtml(skill) {
   </section><section class="detail-section">
     <h3 class="section-heading">試著這樣說<span class="muted">Skillpane 示範</span></h3>
     <div class="prompt-card"><p>${escape(skill.example)}</p><button class="copy-button" data-copy="${escape(skill.example)}" aria-label="複製使用範例">${icon('copy')}</button></div>
-  </section>${diagnosticsHtml(skill)}<section class="detail-section">
+    <button id="saveExamplePrompt" class="quiet-button compact">另存為我的提示詞</button>
+  </section>${promptsHtml(skill,saved,icon)}${diagnosticsHtml(skill)}<section class="detail-section">
     <div class="organize-head"><h3 class="section-heading">我的整理</h3><button id="editMetadataButton" class="quiet-button compact">編輯整理資訊</button><select class="organize-select" id="statusSelect" aria-label="整理狀態">${Object.entries(statusLabels).map(([key,label])=>`<option value="${key}" ${(saved.status||'keep')===key?'selected':''}>${label}</option>`).join('')}</select></div>
-    ${organizationHtml(skill,saved)}<textarea class="note-input" id="noteInput" placeholder="記下你會在什麼情境使用它…" aria-label="個人使用筆記" maxlength="4000">${escape(note)}</textarea>
+    ${organizationHtml(skill,saved)}<p class="helper-text note-help">記錄使用時機與心得；常用的完整說法可存到上方「常用提示詞」。</p><textarea class="note-input" id="noteInput" placeholder="記下你會在什麼情境使用它…" aria-label="個人使用筆記" maxlength="4000">${escape(note)}</textarea>
     <div class="note-footer"><span id="noteState">${state.drafts.has(skill.id)?'有尚未儲存的筆記':'只儲存在這台電腦，不修改技能內容'}</span><button class="secondary-button" id="saveNoteButton">儲存筆記</button></div>
   </section>`;
 }
@@ -337,6 +354,9 @@ $('#detailPane').addEventListener('change',async event=>{
 $('#refreshButton').addEventListener('click',refresh);
 $('#themeButton').addEventListener('click',()=>setTheme(document.documentElement.dataset.theme==='dark'?'light':'dark'));
 $('#themeSelect').addEventListener('change',event=>setTheme(event.target.value));
+$('#textSizeSelect').addEventListener('change',event=>setTextSize(event.target.value));
+$('#sidebarToggle').addEventListener('click',()=>setSidebar(!$('.app-shell').classList.contains('sidebar-hidden')));
+$('#quickSettingsButton').addEventListener('click',()=>$('#settingsDialog').showModal());
 $('#scopeButton').addEventListener('click',()=>$('#scopeDialog').showModal());
 $('#closeScope').addEventListener('click',()=>$('#scopeDialog').close());
 $('#settingsButton').addEventListener('click',()=>$('#settingsDialog').showModal());
@@ -353,4 +373,5 @@ window.addEventListener('beforeunload',event=>{if(state.drafts.size || state.man
 if(/Mac|iPhone|iPad/.test(navigator.platform))$('#searchShortcut').textContent='⌘ K';
 async function syncState(){state.data=await api('/api/state');renderSummary();renderFilters();updateResults({renderSelected:true});}
 initializeManagement({state,api,syncState,toast,displayedTime});
+initializePrompts({state,api,syncState,toast});
 await refresh();

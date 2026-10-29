@@ -24,9 +24,11 @@
 python -B -m unittest discover -s tests -v
 node --check web/app.js
 node --check web/management.js
+node --check web/prompts.js
 node --check tests/browser-regression.js
 node --check tests/browser-management.js
 node --check tests/browser-security.js
+node --check tests/browser-prompts.js
 python scripts/check_publication.py --history --include-untracked
 git diff --check
 ```
@@ -44,6 +46,10 @@ python -B tests/browser_fixture.py --port 8779
 驗證 1280×720、1024×480 與 390×844，包含搜尋選取、草稿、列表及詳情捲動、主題、自訂資訊、匯入還原、重新關聯與比較；檢查沒有水平溢出或瀏覽器錯誤。瀏覽器操作不是 CI 自動化的一部分，不可只依 CI 通過宣稱已做視覺驗證。
 
 同一個合成服務也可貼入 `tests/browser-security.js` 並執行 `await runSecurityRegression()`，驗證名稱、摘要、標籤、筆記等惡意 HTML 維持文字顯示，沒有建立注入元素或執行事件。
+
+貼入 `tests/browser-prompts.js` 並執行 `await runPromptRegression()`，驗證字級、側邊欄、提示詞 CRUD、草稿、文字跳脫、搜尋、備份及多視窗衝突。腳本同樣只允許合成測試服務。
+
+提示詞存於第 2 版 annotation 的可選 `prompts` 欄位。PATCH 包含提示詞時必須同送 `prompts_base`（開啟編輯器時的完整提示詞陣列）；後端在儲存 lock 內比對，過期時回傳 HTTP 409，不寫入。此檢查不阻擋其他視窗單獨修改筆記。`prompts_base` 不持久化。含新欄位的資料需 0.3 以上版本讀取。
 
 `tests/test_adversarial.py` 會自動被 unittest discovery 收錄，涵蓋外部改寫、失效／重用預覽、備份變更、連結換向、超長識別及惡意請求。具體範圍、靜態工具與結果見 [安全測試紀錄](SECURITY_TESTING.md)。
 

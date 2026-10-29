@@ -8,7 +8,7 @@ from urllib.parse import parse_qs, urlsplit
 
 from . import __version__
 from .catalog import Catalog
-from .storage import Annotations, strict_json_loads
+from .storage import Annotations, PromptConflict, strict_json_loads
 from .library import Library
 from .transfers import Transfers
 
@@ -16,6 +16,7 @@ PROJECT = Path(__file__).resolve().parent.parent
 ASSETS = {'/': ('index.html', 'text/html; charset=utf-8'),
           '/app.js': ('app.js', 'text/javascript; charset=utf-8'),
           '/management.js': ('management.js', 'text/javascript; charset=utf-8'),
+          '/prompts.js': ('prompts.js', 'text/javascript; charset=utf-8'),
           '/styles.css': ('styles.css', 'text/css; charset=utf-8'),
           '/favicon.svg': ('favicon.svg', 'image/svg+xml')}
 
@@ -234,7 +235,17 @@ class Handler(BaseHTTPRequestHandler):
             self.json({'error': '找不到要整理的技能。'}, 404)
             return
         try:
-            self.json(self.server.annotations.update(skill_id, self.body()))
+            payload = self.body()
+            expected = None
+            if isinstance(payload, dict) and 'prompts' in payload:
+                expected = payload.pop('prompts_base')
+                if not isinstance(expected, list):
+                    raise ValueError('提示詞版本格式錯誤。')
+            self.json(self.server.annotations.update(skill_id, payload, expected_prompts=expected))
+        except PromptConflict as error:
+            self.json({'error': str(error)}, 409)
+        except KeyError:
+            self.json({'error': '儲存提示詞時需一併提供目前版本。'}, 400)
         except (ValueError, OSError, UnicodeError, TypeError):
             self.json({'error': '無法儲存整理資料，請檢查欄位與本機資料目錄。'}, 400)
 

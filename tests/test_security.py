@@ -97,7 +97,7 @@ class SecurityTests(unittest.TestCase):
                 self.assertEqual(self.request('GET', path)[0], 404)
 
     def test_security_headers_cover_management_assets_and_errors(self):
-        for path in ('/management.js', '/api/health', '/not-found'):
+        for path in ('/management.js', '/prompts.js', '/api/health', '/not-found'):
             _, headers, _ = self.request('GET', path)
             self.assertEqual(headers['X-Content-Type-Options'], 'nosniff')
             self.assertEqual(headers['X-Frame-Options'], 'DENY')
