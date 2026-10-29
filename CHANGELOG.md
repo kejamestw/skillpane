@@ -2,6 +2,7 @@
 
 ## 0.3.3 — Unreleased
 
+- 調整 Windows CI 總時間上限為 25 分鐘，以容納 hosted runner 的真實 PowerShell 啟動器回歸；每次指令仍限 60 秒，Linux 上限與測試範圍維持不變，首次遠端逾時不計為通過。
 - Windows 啟停腳本支援 `-Port`，預設仍為 8766；同一 checkout 的活服務不能直接換 port，啟停採排他鎖避免同時修改紀錄。
 - 以絕對專案入口啟動，核對 Python、程序建立時間及完整命令列；啟動另外確認 loopback socket 的擁有程序，拒絕其他服務及偽裝的健康回應。停止使用已開啟的程序 handle，避免只憑 PID 終止程序。
 - 新增八項合成 Windows 啟動器回歸，含空白／中文路徑、啟停重啟、占用、篡改、其他 checkout、並行鎖與 PowerShell 5.1／7。Linux 略過 Windows 專用案例。
