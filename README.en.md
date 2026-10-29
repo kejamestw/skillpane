@@ -48,7 +48,7 @@ node --check web/prompts.js
 python scripts/check_publication.py --history --include-untracked
 ```
 
-Node is only used for optional syntax checks. CI is configured for Windows/Linux tests and a fully redacted Gitleaks scan of reachable Git history. See [development](docs/DEVELOPMENT.md) for manual browser regressions and the publication checklist.
+Node is only needed for development syntax checks and optional Playwright tests, not to run the app. CI includes Windows/Linux unit, security and copied-bundle CLI lifecycle tests, a redacted Gitleaks history scan, and a separate Linux browser job for Chromium desktop/compact/mobile viewports and Firefox desktop. Each browser test starts a fresh synthetic server; GitHub does not connect to your computer. See [automated testing (Chinese)](docs/TESTING.md) for commands and coverage limits, and [development](docs/DEVELOPMENT.md) for the publication checklist.
 
 The [security testing record (Chinese)](docs/SECURITY_TESTING.md) describes local adversarial checks and their limits. This is internal testing, not an independent penetration test or a guarantee that the software has no vulnerabilities.
 

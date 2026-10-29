@@ -37,6 +37,27 @@ jobs:
       - name: Publication boundaries
         run: python scripts/check_publication.py
 
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+      - name: Install locked development dependencies
+        run: npm ci --ignore-scripts --no-fund --no-audit
+      - name: Install test browsers
+        run: npx --no-install playwright install --with-deps chromium firefox
+      - name: Synthetic browser regressions
+        run: npm run test:browser
+      # No screenshot, trace, video or fixture artifacts are uploaded.
+
   secrets:
     runs-on: ubuntu-latest
     timeout-minutes: 10

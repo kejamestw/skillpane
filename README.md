@@ -95,9 +95,11 @@ node --check web/management.js
 node --check web/prompts.js
 ```
 
-Windows junction 測試需允許建立工作目錄內的 junction；其他平台會略過該項。測試只使用 `.runtime/test-runs/` 內的假資料。Node 僅用於可選的語法檢查。
+Windows junction 測試需允許建立工作目錄內的 junction；其他平台會略過該項。測試只使用 `.runtime/test-runs/` 內的假資料。Node 僅用於開發時的語法檢查及可選的 Playwright 瀏覽器測試；日常使用不需要 Node 或 npm 套件。
 
 GitHub Actions 設定包含 Windows／Linux、Python 3.11／3.13 的單元與安全測試、JavaScript 語法檢查、Git 私有路徑檢查及全歷史 Gitleaks 掃描。這些自動檢查須推送後才會執行；流程與公開前檢查方式見 [開發指南](docs/DEVELOPMENT.md)。
+
+另設獨立的 Playwright 工作，在 GitHub runner 啟動合成資料服務，執行 Chromium 桌面／小視窗／手機尺寸與 Firefox 桌面操作測試。全新來源程式包的啟停、重啟、舊資料升級及備份還原納入上述 Python 測試矩陣；不需要讓 GitHub 連入使用者電腦。執行方式與覆蓋限制見 [自動化測試](docs/TESTING.md)。
 
 本機攻擊情境驗證、工具檢查與限制見 [安全測試紀錄](docs/SECURITY_TESTING.md)；測試通過不代表已接受獨立滲透測試或保證無漏洞。
 

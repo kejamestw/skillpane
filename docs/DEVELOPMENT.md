@@ -43,7 +43,7 @@ python -B tests/browser_fixture.py --port 8779
 
 開啟該測試位址，將 `tests/browser-regression.js` 函式貼入開發者工具，執行 `await runSkillpaneRegression()`；再貼 `tests/browser-management.js` 並執行 `await runManagementRegression()`。兩者會檢查測試服務標記，禁止對真實資料操作。服務每次啟動使用新的合成 home。
 
-驗證 1280×720、1024×480 與 390×844，包含搜尋選取、草稿、列表及詳情捲動、主題、自訂資訊、匯入還原、重新關聯與比較；檢查沒有水平溢出或瀏覽器錯誤。瀏覽器操作不是 CI 自動化的一部分，不可只依 CI 通過宣稱已做視覺驗證。
+上述腳本也由 Playwright 自動執行：Chromium 驗證 1280×720、1024×480 與 390×844，Firefox 驗證 1280×720。獨立的 CI browser job 會檢查搜尋選取、草稿、列表及詳情捲動、主題、自訂資訊、匯入還原、重新關聯與比較，並補充真正的輸入、點擊、滑鼠滾輪及偏好重載測試。自動測試驗證行為及幾何邊界，不代替人工視覺或實機觸控驗收。完整命令及隔離方式見 [自動化測試](TESTING.md)。
 
 同一個合成服務也可貼入 `tests/browser-security.js` 並執行 `await runSecurityRegression()`，驗證名稱、摘要、標籤、筆記等惡意 HTML 維持文字顯示，沒有建立注入元素或執行事件。
 
@@ -65,7 +65,9 @@ gitleaks git . --log-opts=--all --redact=100 --no-banner --exit-code 1
 
 CI 使用固定完整 commit 的官方 Actions、`contents: read` 與 `persist-credentials: false`。Gitleaks 固定版本並比對 Linux archive 的 SHA256；不使用會寫入 PR 的 token，不上傳秘密報告或測試產物。Dependabot 只追蹤 Actions 更新。CI 的執行相依套件與 GitHub 基礎設施仍有供應鏈風險，應持續維護固定版本。
 
-首次 push 後須實際檢查所有 matrix 與 secrets job 結果，不能把「已加入 workflow」當成「遠端 CI 已通過」。
+Playwright 1.64.1 是鎖定於 package-lock.json 的開發相依套件，使用 `npm ci --ignore-scripts` 安裝；瀏覽器另以本機鎖定 CLI 下載。Node 24 只供 CI 測試使用，不進應用程式執行期。Dependabot 同時追蹤 Actions 與 npm；測試不接受既有服務 URL，不上傳截圖、trace、影片或假資料。公開路徑檢查拒絕 node_modules、playwright-report 及 test-results。
+
+每次 push 後須核對確切 SHA 的四個 Python matrix、browser 與 secrets jobs，共六個；不能把「已加入 workflow」當成「遠端 CI 已通過」。
 
 ## 公開前檢查
 

@@ -76,9 +76,24 @@ class SecurityTests(unittest.TestCase):
 
     def test_transfer_encoding_and_oversized_requests_are_rejected(self):
         body = b'{}'
-        self.assertEqual(self.request('POST', '/api/rescan', body, self.write_headers(body) + [('Transfer-Encoding', 'chunked')])[0], 400)
+        original = self.server.annotations.path.read_bytes()
+        # Send headers only: these requests must be rejected before reading any
+        # body. Sending unread bytes races Windows' TCP reset on early close.
+        chunked = self.write_headers(body) + [('Transfer-Encoding', 'chunked')]
+        self.assertEqual(self.request('POST', '/api/rescan', b'', chunked)[0], 400)
         headers = [(key, str(5 * 1024 * 1024) if key == 'Content-Length' else value) for key, value in self.write_headers(body)]
-        self.assertEqual(self.request('POST', '/api/import/preview', body, headers)[0], 400)
+        self.assertEqual(self.request('POST', '/api/import/preview', b'', headers)[0], 400)
+        for values in (chunked, headers):
+            handler = object.__new__(Handler)
+            handler.headers = http.client.HTTPMessage()
+            for key, value in values:
+                handler.headers.add_header(key, value)
+            handler.rfile = Mock()
+            with self.assertRaises(ValueError):
+                handler.body(4 * 1024 * 1024 + 65536)
+            handler.rfile.read.assert_not_called()
+        self.assertEqual(self.server.annotations.path.read_bytes(), original)
+        self.assertEqual(self.request('GET', '/api/health')[0], 200)
 
     def test_duplicate_lengths_are_rejected_at_the_parsed_header_boundary(self):
         # Some local network middleware normalizes Content-Length before Python.

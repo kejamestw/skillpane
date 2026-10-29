@@ -17,7 +17,8 @@ def git(*args):
 
 def forbidden(name):
     path = PurePosixPath(name.lower())
-    private = {'.data', '.runtime', '.agents', '.claude', '.codex', '.venv', '__pycache__'}
+    private = {'.data', '.runtime', '.agents', '.claude', '.codex', '.venv', '__pycache__',
+               'node_modules', 'playwright-report', 'test-results'}
     return (bool(private.intersection(path.parts)) or path.name in {'annotations.json', 'server.json', 'credentials.json', 'id_rsa', 'id_ed25519'}
             or path.name == '.env' or path.name.startswith('.env.') and path.name != '.env.example'
             or path.suffix in {'.pem', '.key', '.p12', '.pfx', '.pyc'}

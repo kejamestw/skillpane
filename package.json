@@ -1,0 +1,10 @@
+{
+  "name": "skillpane-dev-tests",
+  "private": true,
+  "description": "Development-only browser regressions; not required to run Skillpane.",
+  "scripts": {
+    "test:browser": "playwright test"
+  },
+  "engines": { "node": ">=22" },
+  "devDependencies": { "@playwright/test": "1.64.1" }
+}
