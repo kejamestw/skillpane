@@ -2,6 +2,8 @@
 
 先閱讀 [操作手冊](docs/USER_GUIDE.md)。功能問題透過 repository 的 Bug report 表單回報；漏洞依 [SECURITY.md](SECURITY.md) 私下處理。本專案由個人維護，沒有回覆時效承諾。
 
+目前 repository 為私人，尚未公布外部安全回報管道；有存取權的協作者請使用與維護者既有的私下管道。沒有 repo 權限時無法建立 Issue。維護者已決定暫不設信箱，公開時依 [回報管道驗收](docs/SECURITY_REPORTING.md) 啟用 GitHub 原生回報並確認入口及收件；勿將公開 Issue 或 noreply 信箱當成已驗證的安全回報方式。
+
 | 狀況 | 處理方式 |
 | --- | --- |
 | 找不到 Python | 安裝受安全支援的 Python，確認 `python --version`；可用 `python3`／`py`，或於 Windows 啟動器設定使用者層級 `SKILLPANE_PYTHON` 為可信任的執行檔 |

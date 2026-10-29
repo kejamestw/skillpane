@@ -79,7 +79,7 @@ Playwright 1.64.1 是鎖定於 package-lock.json 的開發相依套件，使用 
 4. 機密若曾進 Git，先撤銷／輪替；由維護者決定歷史清理方式。不要以移除當前檔案就認定已消除歷史洩漏。
 5. 確認 README、操作手冊、支援、安全政策、授權及第三方聲明符合實際版本。
 6. 檢查 GitHub 簡介與 topics；不要把本機 URL、私有服務、內部專案或個人資料當成公開範例。
-7. 確認遠端 CI，視 GitHub 方案啟用適用的 secret scanning、push protection、CodeQL 與分支保護。先確認私下漏洞回報管道可用。
+7. 確認遠端 CI，視 GitHub 方案啟用適用的 secret scanning、push protection、CodeQL 與分支保護。已決定公開時採用 GitHub 原生漏洞回報：公開前依 [回報管道驗收](SECURITY_REPORTING.md) 備妥授權與操作，公開後立即啟用並驗證入口及收件；目前 repo 私人，尚未設外部回報管道，未驗收前不宣布可回報或發布新版本。
 8. 由 repository 擁有者明確決定何時改為 public；一般 commit／push 不應自動修改可見度。
 
 這是一份可重複執行的風險檢查程序，不是無漏洞證明。需要更高保證時，應安排獨立安全審查與持續維護。
