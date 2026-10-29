@@ -2,6 +2,8 @@
 
 CI 在 GitHub Actions runner 執行。它在 runner 的 `127.0.0.1` 啟動獨立服務，不會連線維護者電腦的 8766，也不使用真實技能、筆記或提示詞。日常執行 Skillpane 只需要 Python；以下 npm 套件僅供開發測試。
 
+本批新增 [保守文件分流](CI.md)：完整執行仍包含四組 Python 與 24 項 browser；純文件明確略過這些工作，分流負向測試、文件連結、secrets 與最後 validation 仍執行。新的 GitHub 編排須於其提交推送後驗收。
+
 ## Python 與 CLI 流程
 
 ```sh
@@ -95,7 +97,7 @@ npm run test:browser -- --project=chromium-desktop
 
 ## 文件展示素材
 
-README 與操作導覽的三張 PNG 使用正式前端及 `scripts/demo_fixture.py` 的虛構資料：六個個人技能、一個內建項目、自訂中文名稱、筆記與一筆常用提示詞。掃描時間固定為示範值，不使用真實技能或原始作者內容。
+README 與操作導覽的四張 PNG 使用正式前端及 `scripts/demo_fixture.py` 的虛構資料：六個個人技能、一個內建項目、自訂中文名稱、筆記與一筆常用提示詞。另在隔離 home 事先準備新增、SKILL.md 變更與移到排除目錄三種情境，產生三筆掃描事件；掃描與基準時間固定為示範值，不使用真實技能或原始作者內容。
 
 只預覽合成展示需要 Python，不需要 Node：
 
@@ -111,6 +113,8 @@ python -B scripts/demo_fixture.py
 node scripts/capture-docs.cjs
 ```
 
-同樣支援 `SKILLPANE_TEST_PYTHON` 與 `PLAYWRIGHT_BROWSERS_PATH`。腳本只連自己啟動的全新合成服務，不接受外部 base URL；確認展示標記及項目數、封鎖外部請求、檢查未捕捉錯誤與合成原文不變。圖片寫入 `docs/images/desktop.png`、`prompt-editor.png`、`mobile.png`，會取代同名素材；更新後需人工逐張檢視，再檢查 Git 候選檔案。PNG 不包含瀏覽器網址列；不要用真實面板截圖替換。
+同樣支援 `SKILLPANE_TEST_PYTHON` 與 `PLAYWRIGHT_BROWSERS_PATH`。腳本只連自己啟動的全新合成服務，不接受外部 base URL；確認展示標記、七個目前項目及三種類型事件、封鎖外部請求、檢查未捕捉錯誤與截圖期間合成原文不變。圖片寫入 `docs/images/desktop.png`、`prompt-editor.png`、`mobile.png`、`changes.png`，會取代同名素材；更新後需人工逐張檢視，再檢查 Git 候選檔案。PNG 不包含瀏覽器網址列；不要用真實面板截圖替換。
 
 這是手動執行的文件產生流程，未加入 CI，也不改變 CI 不錄製／上傳畫面的政策。PNG 內容需要來源控管及人工視覺檢查，文字型機密掃描不能代替這項檢查；字型可能隨 OS 改變。手機圖僅為視窗模擬。
+
+截圖先完整寫入 `.runtime/` 暫存 PNG，再原子替換目標，避免檔案正被讀取時直接覆寫失敗或留下半張圖；失敗暫存檔保留於忽略目錄供診斷。

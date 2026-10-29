@@ -8,7 +8,32 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      full: ${{ steps.scope.outputs.full }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.13'
+      - name: Test conservative CI selection
+        run: |
+          python -B -m unittest discover -s tests -p test_ci_scope.py -v
+          python -B -m unittest discover -s tests -p test_docs.py -v
+      - name: Documentation links
+        run: python -B scripts/check_docs.py
+      - name: Select validation scope
+        id: scope
+        run: python -B scripts/ci_scope.py detect
+
   tests:
+    needs: changes
+    if: needs.changes.outputs.full == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -41,6 +66,8 @@ jobs:
         run: python scripts/check_publication.py
 
   browser:
+    needs: changes
+    if: needs.changes.outputs.full == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -83,3 +110,24 @@ jobs:
           mkdir "$RUNNER_TEMP/gitleaks-bin"
           tar -xzf "$archive" -C "$RUNNER_TEMP/gitleaks-bin" gitleaks
           "$RUNNER_TEMP/gitleaks-bin/gitleaks" git . --log-opts=--all --redact=100 --no-banner --exit-code 1
+
+  validation:
+    if: always()
+    needs: [changes, tests, browser, secrets]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.13'
+      - name: Require expected validation results
+        env:
+          CI_FULL: ${{ needs.changes.outputs.full }}
+          CI_CHANGES: ${{ needs.changes.result }}
+          CI_TESTS: ${{ needs.tests.result }}
+          CI_BROWSER: ${{ needs.browser.result }}
+          CI_SECRETS: ${{ needs.secrets.result }}
+        run: python -B scripts/ci_scope.py validate

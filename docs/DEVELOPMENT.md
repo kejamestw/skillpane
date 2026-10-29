@@ -15,11 +15,14 @@
 | `tests/` | 合成資料測試與瀏覽器回歸腳本 |
 | `Start.ps1`、`Stop.ps1`、`scripts/Launcher.ps1` | Windows 啟停、排他鎖、程序及監聽身分驗證 |
 | `scripts/launcher_entry.py` | Windows 絕對啟動入口，供命令列核對 checkout |
+| `scripts/ci_scope.py`、`scripts/check_docs.py` | 保守 CI 分流、最終結果及文件相對連結檢查 |
 | `.data/`、`.runtime/` | 忽略於 Git 的個人資料與執行產物 |
 
 一個 checkout 同時只執行一個服務。儲存採程序內 lock、外部變更指紋檢查、原子替換與備份；不提供跨程序鎖或共享資料庫的隔離保證。
 
 ## 驗證
+
+完整／純文件驗證的選擇、失敗處理與遠端待驗收範圍見 [CI 驗證流程](CI.md)。純文件仍執行分流負向測試、文件連結及機密掃描。
 
 使用受安全支援的 Python，執行：
 
@@ -34,6 +37,7 @@ node --check tests/browser-management.js
 node --check tests/browser-security.js
 node --check tests/browser-prompts.js
 python scripts/check_publication.py --history --include-untracked
+python -B scripts/check_docs.py
 git diff --check
 ```
 

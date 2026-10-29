@@ -2,11 +2,19 @@
 const {chromium,expect}=require('@playwright/test');
 const {spawn}=require('node:child_process');
 const {once}=require('node:events');
-const {mkdir}=require('node:fs/promises');
+const {mkdir,writeFile,rename}=require('node:fs/promises');
+const {randomUUID}=require('node:crypto');
 const path=require('node:path');
 const readline=require('node:readline');
 const root=path.resolve(__dirname,'..');
 const output=path.join(root,'docs','images');
+
+async function capture(page,name){
+  const bytes=await page.screenshot({type:'png',animations:'disabled'});
+  const temporary=path.join(root,'.runtime','docs-capture-'+randomUUID()+'.png');
+  await writeFile(temporary,bytes,{flag:'wx'});
+  await rename(temporary,path.join(output,name));
+}
 
 async function main(){
   const allowed=new Set(['PATH','SYSTEMROOT','WINDIR','TEMP','TMP','COMSPEC','SYSTEMDRIVE','LANG','LC_ALL','LD_LIBRARY_PATH']);
@@ -44,6 +52,8 @@ async function main(){
     expect(snapshot.demo_fixture).toBe(true);
     expect(snapshot.skills).toHaveLength(7);
     expect(snapshot.skills.every(skill=>skill.name.startsWith('demo-'))).toBe(true);
+    expect(snapshot.changes.events).toHaveLength(3);
+    expect(new Set(snapshot.changes.events.map(event=>event.kind))).toEqual(new Set(['added','changed','missing']));
     const originals=async()=>Promise.all(snapshot.skills.map(async skill=>{
       const response=await page.request.get(origin+'/api/skill?id='+encodeURIComponent(skill.id));
       expect(response.ok()).toBeTruthy();return (await response.json()).content;
@@ -55,13 +65,17 @@ async function main(){
     await expect(page.locator('.saved-prompt h4')).toHaveText('上線前的介面檢查');
     await page.evaluate(()=>document.fonts.ready);
     await mkdir(output,{recursive:true});
-    await page.screenshot({path:path.join(output,'desktop.png'),animations:'disabled'});
+    await capture(page,'desktop.png');
     await page.locator('#addPromptButton').click();
     await page.locator('#promptNameInput').fill('先確認閱讀順序');
     await page.locator('#promptBodyInput').fill('請用 demo-page-review 檢查這個畫面。\n優先指出標題、主要資訊與操作順序的問題。');
     await page.locator('#promptNameInput').blur();
-    await page.screenshot({path:path.join(output,'prompt-editor.png'),animations:'disabled'});
+    await capture(page,'prompt-editor.png');
     await page.locator('#closePromptButton').click();
+    await page.locator('#changesButton').click();
+    await expect(page.locator('.change-row')).toHaveCount(3);
+    await capture(page,'changes.png');
+    await page.locator('#closeChanges').click();
 
     const mobile=await browser.newContext({viewport:{width:390,height:844},deviceScaleFactor:1,
       isMobile:true,hasTouch:true,locale:'zh-TW',timezoneId:'Asia/Taipei',colorScheme:'light',reducedMotion:'reduce'});
@@ -76,13 +90,13 @@ async function main(){
     await phone.evaluate(()=>document.fonts.ready);
     await phone.locator('#detailPane').evaluate(node=>node.scrollIntoView({block:'start'}));
     expect(await phone.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
-    await phone.screenshot({path:path.join(output,'mobile.png'),animations:'disabled'});
+    await capture(phone,'mobile.png');
     const after=await originals();
     expect(after).toEqual(before);
     expect(errors).toEqual([]);expect(external).toEqual([]);
     await mobile.close();
     await context.close();
-    console.log('Captured 3 synthetic documentation screenshots; source files unchanged; no external requests.');
+    console.log('Captured 4 synthetic documentation screenshots; source files unchanged during capture; no external requests.');
   }finally{
     if(browser)await browser.close();
     lines.close();

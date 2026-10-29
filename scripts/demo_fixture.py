@@ -3,6 +3,7 @@ import argparse
 from pathlib import Path
 import sys
 from uuid import uuid4
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -31,6 +32,8 @@ def create_demo(port=0):
     base = ROOT / '.runtime' / ('docs-demo-' + uuid4().hex)
     home = base / 'synthetic-home'
     for name, _, _, description in DEMO_SKILLS:
+        if name == 'demo-release-notes':
+            continue  # Added after the first scan to demonstrate history.
         target = home / '.agents/skills' / name / 'SKILL.md'
         target.parent.mkdir(parents=True)
         target.write_text(f'---\nname: {name}\ndescription: {description}\n---\n'
@@ -38,10 +41,26 @@ def create_demo(port=0):
     target = home / '.codex/skills/.system/demo-built-in/SKILL.md'
     target.parent.mkdir(parents=True)
     target.write_text('---\nname: demo-built-in\ndescription: 文件展示用的虛構內建項目。\n---\n', encoding='utf-8')
-    server = AppServer(port=port, home=home, state_dir=base / 'state')
+    old = home / '.agents/skills/demo-retired-check'
+    old.mkdir()
+    (old / 'SKILL.md').write_text('---\nname: demo-retired-check\ndescription: 已移出掃描範圍的虛構項目。\n---\n', encoding='utf-8')
+    with patch('skillpane.changes.now', return_value=STAMP):
+        server = AppServer(port=port, home=home, state_dir=base / 'state')
     try:
+        hidden = home / '.agents/skills/.trash/demo-retired-check'
+        hidden.parent.mkdir()
+        if home.resolve() not in old.resolve().parents or home.resolve() not in hidden.resolve().parents:
+            raise ValueError('Synthetic fixture move escaped its own home.')
+        old.rename(hidden)
+        target = home / '.agents/skills/demo-release-notes/SKILL.md'
+        target.parent.mkdir()
+        target.write_text('---\nname: demo-release-notes\ndescription: 將已確認的變更整理成容易閱讀的版本說明。\n---\n# 文件展示用合成技能\n', encoding='utf-8')
+        target = home / '.agents/skills/demo-api-notes/SKILL.md'
+        target.write_text(target.read_text(encoding='utf-8') + '\n新增合成的錯誤回應檢查說明。\n', encoding='utf-8')
         server.catalog = DemoCatalog(home)
         server.library.catalog = server.catalog
+        with patch('skillpane.changes.now', return_value=STAMP):
+            server.library.rescan()
         skills = {s['name']: s for s in server.library.snapshot()['skills']}
         for name, alias, category, _ in DEMO_SKILLS:
             payload = {'alias': alias, 'category': category, 'status': 'keep'}
