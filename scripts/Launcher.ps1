@@ -1,4 +1,24 @@
 # Shared by Start.ps1 and Stop.ps1; Windows PowerShell 5.1 and PowerShell 7.
+$script:SkillpaneLauncherClock = $null
+if ($env:SKILLPANE_LAUNCHER_DIAGNOSTICS -eq '1') {
+    $script:SkillpaneLauncherClock = [Diagnostics.Stopwatch]::StartNew()
+}
+
+function Write-SkillpaneStage([string]$Stage) {
+    if (-not $script:SkillpaneLauncherClock) { return }
+    # Fixed labels only: never log paths, PIDs, arguments, environment or errors.
+    $allowed = @('start-enter', 'stop-enter', 'launcher-exit')
+    foreach ($phase in @('lock-open', 'record-read', 'process-check', 'process-metadata',
+                         'listener-query', 'python-start', 'record-write', 'health-wait',
+                         'readiness', 'stop-process')) {
+        $allowed += "$phase-begin", "$phase-end"
+    }
+    if ($Stage -notin $allowed) { return }
+    try {
+        [Console]::Error.WriteLine(('SKILLPANE_LAUNCHER stage={0} elapsed_ms={1}' -f $Stage, $script:SkillpaneLauncherClock.ElapsedMilliseconds))
+    } catch { } # Diagnostic output must not affect launcher decisions.
+}
+
 function Get-SkillpaneStartTime($Value) {
     # PowerShell 7 converts ISO JSON strings to DateTime; 5.1 keeps strings.
     if ($Value -is [datetime] -and $Value.Kind -ne [DateTimeKind]::Unspecified) { return $Value.ToUniversalTime() }
@@ -9,9 +29,12 @@ function Get-SkillpaneStartTime($Value) {
 }
 
 function Open-SkillpaneLock($RuntimePath) {
+    Write-SkillpaneStage 'lock-open-begin'
     New-Item -ItemType Directory -Path $RuntimePath -Force | Out-Null
     try {
-        return [IO.File]::Open((Join-Path $RuntimePath 'launcher.lock'), 'OpenOrCreate', 'ReadWrite', 'None')
+        $handle = [IO.File]::Open((Join-Path $RuntimePath 'launcher.lock'), 'OpenOrCreate', 'ReadWrite', 'None')
+        Write-SkillpaneStage 'lock-open-end'
+        return $handle
     } catch { throw 'Another launcher operation is running, or the runtime directory is unavailable.' }
 }
 
@@ -48,7 +71,9 @@ function Get-SkillpaneProcess($Record, $Root) {
         if ($managed.StartTime.ToUniversalTime().Ticks -ne $recordedTime.Ticks) {
             throw 'PID was reused or the recorded creation time changed; refusing this process.'
         }
+        Write-SkillpaneStage 'process-metadata-begin'
         $metadata = Get-CimInstance Win32_Process -Filter "ProcessId = $($Record.Pid)" -ErrorAction Stop
+        Write-SkillpaneStage 'process-metadata-end'
         $entryPath = Join-Path $Root 'scripts\launcher_entry.py'
         $pythonPath = [IO.Path]::GetFullPath($Record.PythonPath)
         $pattern = '^\s*(?:"' + [regex]::Escape($pythonPath) + '"|' + [regex]::Escape($pythonPath) +
@@ -62,12 +87,19 @@ function Get-SkillpaneProcess($Record, $Root) {
     } catch { $managed.Dispose(); throw }
 }
 
-function Get-SkillpaneListeners($Port) {
+function Get-SkillpaneListeners([ValidateRange(1,65535)][int]$Port) {
     # Query failures must stop the operation; they are not proof that a port is free.
-    return @(Get-NetTCPConnection -State Listen -ErrorAction Stop | Where-Object { $_.LocalPort -eq $Port })
+    Write-SkillpaneStage 'listener-query-begin'
+    # Same Windows TCP provider; filter at the provider instead of enumerating
+    # every listener through NetTCPIP. State 2 is Listen. A successful query
+    # with no matches is empty; provider errors still propagate and stop startup.
+    $listeners = @(Get-CimInstance -Namespace root/StandardCimv2 -ClassName MSFT_NetTCPConnection -Filter "LocalPort = $Port AND State = 2" -ErrorAction Stop)
+    Write-SkillpaneStage 'listener-query-end'
+    return $listeners
 }
 
 function Assert-SkillpaneReady($Managed, $Port) {
+    Write-SkillpaneStage 'readiness-begin'
     $listeners = @(Get-SkillpaneListeners $Port | Where-Object { $_.LocalAddress -eq '127.0.0.1' })
     if ($listeners.Count -ne 1 -or $listeners[0].OwningProcess -ne $Managed.Id) {
         throw 'The listening socket does not belong to the recorded Skillpane process.'
@@ -76,4 +108,5 @@ function Assert-SkillpaneReady($Managed, $Port) {
     if ($health.app -ne 'skillpane' -or $health.skill_files_readonly -ne $true) {
         throw 'The recorded process did not return the expected health response.'
     }
+    Write-SkillpaneStage 'readiness-end'
 }

@@ -14,6 +14,7 @@ import threading
 import unittest
 
 from test_catalog import fixture_root, skill
+from launcher_diagnostics import invoke as invoke_with_diagnostics, read_events
 
 ROOT = Path(__file__).resolve().parents[1]
 POWERSHELL = shutil.which('powershell.exe')
@@ -41,7 +42,8 @@ class LauncherTests(unittest.TestCase):
         allowed = {'PATH', 'SYSTEMROOT', 'WINDIR', 'TEMP', 'TMP', 'COMSPEC', 'SYSTEMDRIVE', 'LANG', 'LC_ALL'}
         self.env = {key: value for key, value in os.environ.items() if key.upper() in allowed}
         self.env.update(HOME=str(self.home), USERPROFILE=str(self.home),
-                        SKILLPANE_PYTHON=sys.executable, PYTHONUTF8='1', PYTHONDONTWRITEBYTECODE='1')
+                        SKILLPANE_PYTHON=sys.executable, PYTHONUTF8='1', PYTHONDONTWRITEBYTECODE='1',
+                        SKILLPANE_LAUNCHER_DIAGNOSTICS='1')
         self.owned = []
         self.commands = 0
 
@@ -70,15 +72,12 @@ class LauncherTests(unittest.TestCase):
         self.commands += 1
         out = self.base / f'command-{self.commands}.stdout.txt'
         err = self.base / f'command-{self.commands}.stderr.txt'
-        with out.open('wb') as stdout, err.open('wb') as stderr:
-            completed = subprocess.run(command + list(extra), cwd=bundle, env=self.env,
-                                       stdin=subprocess.DEVNULL, stdout=stdout, stderr=stderr,
-                                       creationflags=subprocess.CREATE_NO_WINDOW, timeout=60)
-        result = subprocess.CompletedProcess(completed.args, completed.returncode,
-                    out.read_text(encoding='utf-8', errors='replace'),
-                    err.read_text(encoding='utf-8', errors='replace'))
+        result = invoke_with_diagnostics(command + list(extra), cwd=bundle, env=self.env,
+            out=out, err=err, action=action,
+            shell='PowerShell7' if shell and shell == PWSH else 'WindowsPowerShell',
+            creationflags=subprocess.CREATE_NO_WINDOW)
         if check:
-            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(result.returncode, 0, result.diagnostics)
         return result
 
     @staticmethod
@@ -250,6 +249,75 @@ class LauncherTests(unittest.TestCase):
                 process.terminate()
                 process.wait(timeout=10)
             process.stdout.close()
+
+    def test_diagnostics_are_opt_in_and_reject_unknown_labels(self):
+        script = self.base / 'diagnostic-labels.ps1'
+        script.write_text(". $args[0];Write-SkillpaneStage 'start-enter';"
+                          "Write-SkillpaneStage 'private-payload';Write-SkillpaneStage 'launcher-exit'", encoding='utf-8')
+        for shell in dict.fromkeys([POWERSHELL, PWSH]):
+            if not shell:
+                continue
+            for enabled in (None, False, True):
+                with self.subTest(shell='PowerShell7' if shell == PWSH else 'WindowsPowerShell', enabled=enabled):
+                    env = dict(self.env)
+                    if enabled is None:
+                        env.pop('SKILLPANE_LAUNCHER_DIAGNOSTICS', None)
+                    else:
+                        env['SKILLPANE_LAUNCHER_DIAGNOSTICS'] = '1' if enabled else '0'
+                    result = subprocess.run([shell, '-NoProfile', '-File', str(script),
+                        str(self.bundle / 'scripts/Launcher.ps1')], env=env, capture_output=True,
+                        creationflags=subprocess.CREATE_NO_WINDOW, timeout=60)
+                    self.assertEqual(result.returncode, 0)
+                    self.assertEqual(result.stdout, b'')
+                    self.assertNotIn(b'private-payload', result.stderr)
+                    target = self.base / 'diagnostic-labels.stderr.txt'
+                    target.write_bytes(result.stderr)
+                    events = read_events(target)
+                    self.assertEqual([stage for stage, _ in events],
+                        ['start-enter', 'launcher-exit'] if enabled else [])
+                    if not enabled:
+                        self.assertEqual(result.stderr, b'')
+
+    def test_listener_query_errors_are_not_treated_as_an_empty_port(self):
+        script = self.base / 'listener-query-contract.ps1'
+        script.write_text('''param([string]$Launcher,[string]$Mode)
+$ErrorActionPreference='Stop'
+. $Launcher
+$script:queries=0
+function Get-CimInstance {
+    param($Namespace,$ClassName,$Filter,$ErrorAction)
+    $script:queries++
+    if($Namespace -ne 'root/StandardCimv2' -or $ClassName -ne 'MSFT_NetTCPConnection' -or
+       $Filter -ne 'LocalPort = 50001 AND State = 2' -or $ErrorAction -ne 'Stop') {throw 'Invalid query contract'}
+    if($Mode -eq 'error') {throw 'Synthetic provider failure'}
+    return
+}
+if($Mode -eq 'empty') {
+    if(@(Get-SkillpaneListeners 50001).Count -ne 0 -or $script:queries -ne 1) {throw 'Expected successful empty query'}
+} elseif($Mode -eq 'error') {
+    $rejected=$false
+    try {$null=@(Get-SkillpaneListeners 50001)} catch {if($_.Exception.Message -eq 'Synthetic provider failure') {$rejected=$true}}
+    if(-not $rejected -or $script:queries -ne 1) {throw 'Provider failure was accepted'}
+} elseif($Mode -eq 'invalid') {
+    foreach($value in @(0,-1,65536,'1 OR State = 2')) {
+        $rejected=$false
+        try {$null=@(Get-SkillpaneListeners $value)} catch {$rejected=$true}
+        if(-not $rejected) {throw 'Invalid port was accepted'}
+    }
+    if($script:queries -ne 0) {throw 'Invalid port reached provider'}
+} else {throw 'Unknown fixture mode'}
+Write-Output 'verified'
+''', encoding='utf-8')
+        for shell in dict.fromkeys([POWERSHELL, PWSH]):
+            if not shell:
+                continue
+            for mode in ('empty', 'error', 'invalid'):
+                with self.subTest(shell='PowerShell7' if shell == PWSH else 'WindowsPowerShell', mode=mode):
+                    result = subprocess.run([shell, '-NoProfile', '-File', str(script),
+                        str(self.bundle / 'scripts/Launcher.ps1'), mode], env=self.env,
+                        capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW, timeout=60)
+                    self.assertEqual(result.returncode, 0, 'Synthetic listener query contract failed.')
+                    self.assertEqual(result.stdout.strip(), b'verified')
 
     @unittest.skipUnless(PWSH, 'PowerShell 7 is not installed')
     def test_powershell_7_uses_the_same_record_and_process_identity(self):

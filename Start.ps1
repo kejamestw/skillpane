@@ -3,12 +3,17 @@ $ErrorActionPreference = 'Stop'
 $appUrl = "http://127.0.0.1:$Port"
 $runtimePath = Join-Path $PSScriptRoot '.runtime'
 . (Join-Path $PSScriptRoot 'scripts\Launcher.ps1')
+Write-SkillpaneStage 'start-enter'
 $launcherLock = Open-SkillpaneLock $runtimePath
 $managed = $null
 try {
     $statePath = Join-Path $runtimePath 'server.json'
+    Write-SkillpaneStage 'record-read-begin'
     $record = Read-SkillpaneRecord $statePath $PSScriptRoot
+    Write-SkillpaneStage 'record-read-end'
+    Write-SkillpaneStage 'process-check-begin'
     $managed = Get-SkillpaneProcess $record $PSScriptRoot
+    Write-SkillpaneStage 'process-check-end'
     if ($managed) {
         if ($record.Port -ne $Port) { throw 'This checkout is already running on another port. Stop it before changing ports.' }
         Assert-SkillpaneReady $managed $Port
@@ -31,11 +36,16 @@ try {
         if ($pythonPath -notmatch 'python(?:w)?\.exe$') { throw 'The launcher requires a Python executable.' }
         $entryPath = Join-Path $PSScriptRoot 'scripts\launcher_entry.py'
         $arguments = '-B -u "' + $entryPath + '" --port ' + $Port
+        Write-SkillpaneStage 'python-start-begin'
         $managed = Start-Process -FilePath $pythonPath -ArgumentList $arguments -WorkingDirectory $PSScriptRoot -WindowStyle Hidden -RedirectStandardOutput (Join-Path $runtimePath 'stdout.log') -RedirectStandardError (Join-Path $runtimePath 'stderr.log') -PassThru
+        Write-SkillpaneStage 'python-start-end'
         try {
             [void]$managed.Handle
+            Write-SkillpaneStage 'record-write-begin'
             @{RecordVersion=1;Pid=$managed.Id;Root=$PSScriptRoot;Port=$Port;PythonPath=$pythonPath;StartedUtc=$managed.StartTime.ToUniversalTime().ToString('o')} | ConvertTo-Json | Set-Content -LiteralPath $statePath -Encoding UTF8
+            Write-SkillpaneStage 'record-write-end'
             $ready = $false
+            Write-SkillpaneStage 'health-wait-begin'
             for ($attempt=0; $attempt -lt 40; $attempt++) {
                 $managed.Refresh()
                 if ($managed.HasExited) { throw 'Skillpane exited. See .runtime/stderr.log.' }
@@ -46,6 +56,7 @@ try {
                 Start-Sleep -Milliseconds 300
             }
             if (-not $ready) { throw 'Skillpane did not become ready.' }
+            Write-SkillpaneStage 'health-wait-end'
             Assert-SkillpaneReady $managed $Port
         } catch {
             if (-not $managed.HasExited) { $managed.Kill(); [void]$managed.WaitForExit(5000) }
@@ -57,4 +68,5 @@ try {
 } finally {
     if ($managed) { $managed.Dispose() }
     $launcherLock.Dispose()
+    Write-SkillpaneStage 'launcher-exit'
 }

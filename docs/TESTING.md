@@ -81,7 +81,7 @@ npm run test:browser -- --project=chromium-desktop
 | chromium-mobile | 390×844，觸控與行動裝置模擬 |
 | firefox-desktop | 1280×720 |
 
-每組執行五個案例：核心、管理、XSS 文字顯示、提示詞回歸，以及使用 Playwright 真實輸入／點擊／滾輪操作的案例，共 20 個。四個既有腳本保留合成服務標記檢查；額外案例檢查搜尋、筆記草稿、儲存、側欄與字級偏好重載、清單及詳情捲動與水平溢出。
+每組執行六個案例：核心、管理、XSS 文字顯示、提示詞回歸、使用 Playwright 真實輸入／點擊／滾輪操作，以及掃描變更紀錄，共 24 個。四個既有腳本保留合成服務標記檢查；額外案例檢查搜尋、筆記草稿、儲存、側欄與字級偏好重載、清單及詳情捲動與水平溢出。
 
 每個案例建立全新的合成服務、browser context 與動態 port；不重用既有服務、不接受外部 base URL。瀏覽器封鎖服務以外的網路請求，提示詞腳本攔截複製操作，不碰 OS 剪貼簿；未捕捉的 JavaScript 錯誤使測試失敗。預期的衝突或錯誤輸入 HTTP 回應由個別腳本驗證。服務子程序在測試結束時停止。失敗時不自動重試，以免掩蓋不穩定案例。
 
@@ -89,7 +89,26 @@ npm run test:browser -- --project=chromium-desktop
 
 ## 結果判讀與限制
 
-推送後核對確切 commit SHA 的四個 Python jobs、一個 browser job 及一個 secrets job。僅本機通過或已有 workflow，不代表遠端已成功。畫面測試驗證的是操作與排版邊界，不是字體美觀、實機流暢度或完整無障礙認證；Firefox 只驗證桌面，Safari／WebKit 與真實手機尚未涵蓋。
+推送後核對確切 commit SHA 的工作結果。完整流程有 changes、四個 Python jobs、browser、secrets 及 validation，共八項；文件流程的 tests／browser 預期略過，其餘三項仍必須成功，見 [CI 流程](CI.md)。僅本機通過或已有 workflow，不代表遠端已成功。畫面測試驗證的是操作與排版邊界，不是字體美觀、實機流暢度或完整無障礙認證；Firefox 只驗證桌面，Safari／WebKit 與真實手機尚未涵蓋。
+
+## Windows 啟動超時診斷
+
+`test_launcher.py` 建立獨立程式副本、合成 home 與動態 port，於該子程序設定 `SKILLPANE_LAUNCHER_DIAGNOSTICS=1`；正式啟動器預設不印診斷。每個 Start／Stop 保持 60 秒上限，沒有自動重試；Windows CI 工作維持 25 分鐘限制。
+
+```sh
+python -B -m unittest discover -s tests -p test_launcher_diagnostics.py -v
+python -B -m unittest discover -s tests -p test_launcher.py -v
+```
+
+單次摘要包含 Start／Stop、PowerShell 類型、結果、整體毫秒數、最後階段、尚未結束的最內層階段，以及已完成階段耗時。可區分排他鎖、紀錄讀寫、程序及 CIM 身分查詢、監聽查詢、Python 啟動、健康回應與停止等待。整體時間包含 PowerShell 啟動／退出，階段鐘從載入共用腳本開始；兩者差距不能直接當成純 PowerShell 啟動耗時。`no-marker` 只表示沒有可辨識階段，不能據此判定根因。
+
+摘要只接受固定標籤及 ASCII 毫秒數，讀取 stderr 尾端最多 16 KiB、保留最多 128 個事件；忽略原始文字、未知標籤與倒退的時間。超時仍印出已完成及未完成階段，維持測試失敗，不把 TimeoutExpired 的完整命令或輸出帶入錯誤訊息。原始 stdout／stderr 留在 Git 忽略的合成 fixture，CI 不上傳；檢查失敗也只印安全摘要。
+
+診斷預設關閉與標籤拒絕在 Windows PowerShell 5.1／7 驗證。查詢契約另測成功空結果、提供者錯誤向外傳遞，以及非法／可疑 port 在查詢前拒絕；真實占用、偽裝健康回應、紀錄竄改、不同 checkout 與持鎖案例仍須全部執行。
+
+監聽查詢改用 `Get-CimInstance` 的 provider filter，仍讀相同 `root/StandardCimv2` 的 `MSFT_NetTCPConnection`，保留 `State = 2`（Listen）、port 與後續 loopback／socket 擁有者檢查；查詢失敗不能視為 port 可用。依據：[Microsoft Get-CimInstance 的 Filter](https://learn.microsoft.com/en-us/powershell/module/cimcmdlets/get-ciminstance?view=powershell-5.1#-filter)、[Get-NetTCPConnection](https://learn.microsoft.com/en-us/powershell/module/nettcpip/get-nettcpconnection)。Listen 數值另核對 Windows 內建 `NetTCPIP/MSFT_NetTCPConnection.cdxml`。
+
+首次 GitHub 超時發生在雲端 Windows runner 的初始 `self.start()`，不是使用者電腦，也尚未進入持鎖競爭。同一舊提交第二次成功，只能確認未必每次重現。新診斷與本機查詢改善尚須以本批自己的遠端提交驗收，不能把本機較快視為雲端超時已修復。
 
 維護新版本時先跑受影響案例，再執行必要完整回歸；本機驗證不取代遠端矩陣。發布前仍須檢查候選檔案、Git 歷史與公開邊界，這些測試不是零漏洞證明或獨立安全審查。
 
