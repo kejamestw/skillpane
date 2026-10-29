@@ -11,7 +11,7 @@ from uuid import uuid4
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from skillpane.catalog import Catalog
-from skillpane.server import AppServer
+from skillpane.server import AppServer, Handler
 
 
 class FixtureCatalog(Catalog):
@@ -48,6 +48,30 @@ def main():
     server.catalog = FixtureCatalog(home)
     server.library.catalog = server.catalog
     server.library.reconcile()
+    class FixtureHandler(Handler):
+        def do_POST(self):
+            if self.path != '/api/fixture/changes':
+                return super().do_POST()
+            if not self.trusted(write=True):
+                return
+            try:
+                if self.body() != {}:
+                    raise ValueError('Fixture accepts only an empty object.')
+                if not getattr(self.server, 'fixture_changed', False):
+                    for index in range(12):
+                        target = home / f'.agents/skills/fixture-{index:03}/SKILL.md'
+                        if index != 1:
+                            target.write_text(target.read_text(encoding='utf-8') + '\nSynthetic change', encoding='utf-8')
+                    hidden = home / '.agents/skills/.trash/fixture-001'
+                    hidden.parent.mkdir()
+                    (home / '.agents/skills/fixture-001').rename(hidden)
+                    write('.agents/skills/history-added', 'history-added <img src=x onerror=window.__historyXss=1>', 'Synthetic new item')
+                    write('.codex/plugins/cache/market/plugin/3/skills/fixture-000', 'fixture-000', 'Synthetic plugin API')
+                    self.server.fixture_changed = True
+                self.json({'test_fixture': True})
+            except (ValueError, OSError):
+                self.json({'error': 'Synthetic changes were not prepared.'}, 400)
+    server.RequestHandlerClass = FixtureHandler
     print(f'Independent synthetic fixture: {server.origin}', flush=True)
     try:
         server.serve_forever()

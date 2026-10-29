@@ -114,7 +114,7 @@ class LifecycleTests(unittest.TestCase):
                                           {**annotation, 'prompts_base': []})[0], 200)
             connection = http.client.HTTPConnection('127.0.0.1', self.port, timeout=5)
             try:
-                for route in ('/', '/app.js', '/management.js', '/prompts.js', '/styles.css', '/favicon.svg'):
+                for route in ('/', '/app.js', '/management.js', '/prompts.js', '/changes.js', '/styles.css', '/favicon.svg'):
                     connection.request('GET', route)
                     response = connection.getresponse()
                     self.assertEqual(response.status, 200)

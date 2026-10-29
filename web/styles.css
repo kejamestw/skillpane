@@ -1479,6 +1479,36 @@ dialog::backdrop {
 .remove-prompt { color:#bc3546; margin-top:12px; }
 :root[data-theme=dark] .remove-prompt { color:#ff91a1; }
 .prompt-remove-confirm { border:1px solid var(--line); border-radius:8px; padding:12px; margin-top:12px; font-size:.875rem; }
+.changes-dialog { width:min(920px,calc(100vw - 32px)); }
+.changes-dialog .dialog-head h2 { margin-bottom:4px; }
+.changes-dialog .dialog-head p { margin:0; }
+.changes-toolbar { display:flex; gap:10px; align-items:center; }
+.changes-toolbar .search-field { flex:1; min-width:0; margin:0; }
+.changes-toolbar select { width:auto; max-width:42%; }
+.changes-toolbar button { flex-shrink:0; }
+.changes-list { max-height:44dvh; min-height:8rem; overflow:auto; overscroll-behavior:contain; border:1px solid var(--line); border-radius:10px; }
+.change-row { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:14px; border-bottom:1px solid var(--line); }
+.change-row:last-child { border-bottom:0; }
+.change-row-main { min-width:0; overflow-wrap:anywhere; }
+.change-row strong { font-size:1rem; font-weight:620; }
+.change-row p { margin:7px 0; font-size:.9375rem; line-height:1.65; color:var(--secondary); }
+.change-row small { color:var(--secondary); font-size:.8125rem; }
+.change-row button { flex-shrink:0; }
+.change-kind { display:inline-block; font-size:.8125rem; border-radius:6px; padding:3px 7px; margin-right:8px; background:var(--field); color:var(--text); }
+.change-added { background:var(--selection); color:var(--blue); }
+.change-changed { border:1px solid var(--line); }
+.change-empty { padding:24px 18px; text-align:center; }
+.change-empty p { color:var(--secondary); font-size:.9375rem; line-height:1.7; }
+.changes-footer { display:flex; flex-wrap:wrap; justify-content:space-between; gap:8px; font-size:.8125rem; color:var(--secondary); padding:12px 0; }
+.changes-privacy { font-size:.875rem; color:var(--secondary); border-top:1px solid var(--line); padding-top:12px; }
+.changes-privacy p { line-height:1.7; }
+@media(max-width:620px) {
+  .changes-toolbar { flex-wrap:wrap; }
+  .changes-toolbar .search-field { flex-basis:100%; }
+  .changes-toolbar select { flex:1; max-width:none; }
+  .change-row { align-items:flex-start; flex-direction:column; gap:9px; }
+  .changes-list { max-height:38dvh; }
+}
 .annotation-preview dd { white-space:pre-wrap; }
 @media(max-width:850px) {
   .sidebar .nav-item,.sidebar-bottom .quiet-button { font-size:0; }

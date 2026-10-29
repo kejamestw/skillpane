@@ -24,6 +24,7 @@ Since 0.3.3, both Windows scripts accept `-Port 8767`. Stop the existing service
 
 ## What it does
 
+- Local scan history records added, changed and no-longer-observed skills, with search, type filters and links back to current skills. The first scan establishes a baseline; subsequent starts and rescans retain up to 300 events. It is not installation or usage history, excludes auxiliary scripts and is not included in portable backups or catalog exports. See the [user guide](docs/USER_GUIDE.md#10-技能變更紀錄).
 - Scans user-level `.agents/skills`, `.codex/skills`, `.claude/skills`, and `.codex/plugins/cache` under the current home directory.
 - Deduplicates physical aliases and collapses plugin cache versions. Cached files do not prove that a skill is currently activated.
 - Searches names, descriptions, categories, tags, saved notes and personal prompts; offers favorites and organization markers.
@@ -53,6 +54,7 @@ python -B -m unittest discover -s tests -v
 node --check web/app.js
 node --check web/management.js
 node --check web/prompts.js
+node --check web/changes.js
 python scripts/check_publication.py --history --include-untracked
 ```
 

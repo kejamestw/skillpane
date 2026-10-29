@@ -224,21 +224,31 @@ class LauncherTests(unittest.TestCase):
         original = self.record_file(self.bundle).read_bytes()
         # Open with FileShare.None inside a process we own. The actual launchers
         # must fail rather than replace the record or stop its running service.
-        code = "$lock=[IO.File]::Open($args[0],'Open','ReadWrite','None');[Console]::WriteLine('locked');Start-Sleep -Seconds 45"
+        # Keep the lock until this test explicitly closes stdin. A fixed sleep
+        # can expire while hosted Windows runners are still starting PowerShell.
+        code = "$lock=[IO.File]::Open($args[0],'Open','ReadWrite','None');try{[Console]::WriteLine('locked');[Console]::In.ReadLine() | Out-Null}finally{$lock.Dispose()}"
         script = self.base / 'hold-lock.ps1'
         script.write_text(code, encoding='utf-8')
         process = subprocess.Popen([POWERSHELL, '-NoProfile', '-File', str(script),
                                     str(self.bundle / '.runtime/launcher.lock')], env=self.env,
-                                   stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+                                   stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                   stderr=subprocess.DEVNULL, text=True,
+                                   creationflags=subprocess.CREATE_NO_WINDOW)
         try:
             self.assertEqual(process.stdout.readline().strip(), 'locked')
             for action in ('Start', 'Stop'):
+                self.assertIsNone(process.poll(), 'Lock holder exited before the competing operation.')
                 self.assertNotEqual(self.invoke(action, check=False).returncode, 0)
+            self.assertIsNone(process.poll(), 'Lock holder must outlive both competing operations.')
             self.assertEqual(self.record_file(self.bundle).read_bytes(), original)
             self.assertEqual(self.request()['app'], 'skillpane')
         finally:
-            process.terminate()
-            process.wait(timeout=10)
+            process.stdin.close()
+            try:
+                process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                process.terminate()
+                process.wait(timeout=10)
             process.stdout.close()
 
     @unittest.skipUnless(PWSH, 'PowerShell 7 is not installed')

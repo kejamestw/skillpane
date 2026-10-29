@@ -7,6 +7,7 @@
 | `skillpane/catalog.py` | 唯讀掃描、分類、版本收合及候選群組 |
 | `skillpane/metadata.py` | 不執行內容的保守 YAML 欄位判讀 |
 | `skillpane/library.py` | 穩定識別、來源證據及比較 |
+| `skillpane/changes.py` | 有上限的本機掃描基準與變更紀錄 |
 | `skillpane/storage.py` | 格式驗證、原子替換與本機備份 |
 | `skillpane/transfers.py` | 有效期／revision 綁定的匯入、關聯與清理預覽 |
 | `skillpane/server.py` | loopback HTTP、同源驗證與資源允許清單 |
@@ -27,6 +28,7 @@ python -B -m unittest discover -s tests -v
 node --check web/app.js
 node --check web/management.js
 node --check web/prompts.js
+node --check web/changes.js
 node --check tests/browser-regression.js
 node --check tests/browser-management.js
 node --check tests/browser-security.js

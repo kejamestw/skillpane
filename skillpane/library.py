@@ -10,6 +10,7 @@ import subprocess
 from uuid import uuid4
 
 from .storage import clone, file_digest, now, pair_key, validate_comparison
+from .changes import ScanHistory
 
 
 def identity_for(skill):
@@ -27,6 +28,23 @@ class Library:
         self.raw = {}
         self.git_cache = {}
         self.reconcile()
+        self.history = ScanHistory(store)
+        self.observe_changes()
+
+    def observe_changes(self):
+        if self.store.error:
+            self.history.error = '整理資料無法讀取，暫停記錄技能變更；原始檔已保留。'
+            return
+        skills = [{**self.raw[key], 'id': stable_id} for stable_id, key in self.live.items()]
+        self.history.observe(skills, skipped=self.catalog.stats['skipped'])
+
+    def rescan(self):
+        with self.store.lock:
+            self.catalog.refresh()
+            self.git_cache.clear()
+            self.reconcile()
+            self.observe_changes()
+            return self.snapshot()
 
     def reconcile(self):
         """Path continuity first; content moves only when both sides are unique."""
@@ -93,7 +111,7 @@ class Library:
                     'orphans': [{'id': key, 'identity': clone(value), 'annotation': clone(self.store.state['annotations'].get(key, {}))}
                                 for key, value in self.store.state['identities'].items() if key not in self.live and not value.get('retired')],
                     'storage_error': self.store.error, 'data_version': 2,
-                    'backup_settings': clone(self.store.state['settings'])}
+                    'backup_settings': clone(self.store.state['settings']), 'changes': self.history.snapshot()}
 
     def skill(self, stable_id):
         if stable_id not in self.live:

@@ -1,4 +1,4 @@
-"""Loopback-only application. The only disk writes are local annotations."""
+"""Loopback-only application. Writes only local organization and scan history."""
 from __future__ import annotations
 import argparse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -20,6 +20,7 @@ ASSETS = {'/': ('index.html', 'text/html; charset=utf-8'),
           '/app.js': ('app.js', 'text/javascript; charset=utf-8'),
           '/management.js': ('management.js', 'text/javascript; charset=utf-8'),
           '/prompts.js': ('prompts.js', 'text/javascript; charset=utf-8'),
+          '/changes.js': ('changes.js', 'text/javascript; charset=utf-8'),
           '/styles.css': ('styles.css', 'text/css; charset=utf-8'),
           '/favicon.svg': ('favicon.svg', 'image/svg+xml')}
 
@@ -211,9 +212,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             payload = self.body(4 * 1024 * 1024 + 65536 if route == '/api/import/preview' else 1024 * 1024 if route == '/api/import/apply' else 24000)
             if route == '/api/rescan':
-                self.server.catalog.refresh()
-                self.server.library.git_cache.clear()
-                result = self.server.library.snapshot()
+                result = self.server.library.rescan()
             else:
                 result = actions[route](payload)
             self.json(result)

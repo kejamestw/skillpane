@@ -1,5 +1,6 @@
 import {customize, organizationHtml, historyHtml, loadSourceEvidence, initializeManagement} from './management.js';
 import {promptsHtml, initializePrompts} from './prompts.js';
+import {initializeChanges, renderChanges} from './changes.js';
 
 const paths = {
   grid:'M3 3h7v7H3z M14 3h7v7h-7z M3 14h7v7H3z M14 14h7v7h-7z',
@@ -109,6 +110,7 @@ function renderSummary() {
   Object.entries(counts).forEach(([key,value]) => document.querySelectorAll(`[data-count="${key}"]`).forEach(el => { el.textContent=value; }));
   $('#scopeRoots').replaceChildren(...state.data.scan_scope.roots.map(path=>{const li=document.createElement('li');li.textContent=path;return li;}));
   $('#scanTime').textContent = `掃描於 ${displayedTime(state.data.generated_at)} · 台灣時間`;
+  renderChanges();
 }
 
 function baseSkills() {
@@ -374,4 +376,5 @@ if(/Mac|iPhone|iPad/.test(navigator.platform))$('#searchShortcut').textContent='
 async function syncState(){state.data=await api('/api/state');renderSummary();renderFilters();updateResults({renderSelected:true});}
 initializeManagement({state,api,syncState,toast,displayedTime});
 initializePrompts({state,api,syncState,toast});
+initializeChanges({state,displayedTime,refresh,openSkill(id){const skill=state.data.skills.find(item=>item.id===id);if(skill){setView(skill.source==='personal'?'personal':'other');selectSkill(id);}}});
 await refresh();
