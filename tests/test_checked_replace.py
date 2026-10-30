@@ -154,6 +154,30 @@ class CheckedReplaceStorageTests(unittest.TestCase):
         self.assertTrue(history.error)
         self.assertEqual(history.path.read_bytes(), before)
         self.assertEqual(history.state, state)
+        self.assertEqual(list(self.store.directory.glob('scan-history-*.tmp')), [])
+
+    def test_annotation_failure_removes_only_its_temporary_file(self):
+        unrelated = self.store.directory / 'annotations-unrelated.tmp'
+        unrelated.write_bytes(b'kept')
+        with patch.object(storage, 'WINDOWS_REPLACE', False), \
+                patch.object(Path, 'replace', side_effect=OSError(errno.ENOSPC, 'Synthetic capacity')):
+            with self.assertRaises(OSError):
+                self.store.update(self.id, {'note': 'not written'})
+        self.assertEqual(list(self.store.directory.glob('annotations-*.tmp')), [unrelated])
+        self.assertEqual(unrelated.read_bytes(), b'kept')
+
+    def test_written_data_is_flushed_to_disk_before_replacement(self):
+        synced = []
+        original = storage.os.fsync
+        def fsync(descriptor):
+            synced.append(descriptor)
+            return original(descriptor)
+        with patch.object(storage.os, 'fsync', fsync), patch.object(Path, 'replace', autospec=True,
+                                                                      side_effect=Path.replace) as replace:
+            self.store.update(self.id, {'note': 'durable'})
+        self.assertTrue(synced)
+        self.assertEqual(replace.call_count, 1)
+        self.assertEqual(Annotations(self.store.directory).snapshot()[self.id]['note'], 'durable')
 
     def test_history_transient_failure_saves_one_event_and_survives_restart(self):
         history = self.library.history
@@ -209,3 +233,6 @@ class CheckedReplaceStorageTests(unittest.TestCase):
         self.assertTrue(history.error)
         self.assertEqual(history.state, state)
         self.assertEqual(sentinel.read_bytes(), b'outside sentinel')
+        # Cleanup never follows the rebound directory; the original temporary stays put.
+        self.assertEqual([path.name for path in outside.iterdir()], ['scan-history.json'])
+        self.assertEqual(len(list((self.base / 'kept-state').glob('scan-history-*.tmp'))), 1)

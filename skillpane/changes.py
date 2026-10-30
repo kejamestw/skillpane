@@ -1,12 +1,11 @@
 """Bounded local scan observations, without skill bodies or source paths."""
 from hashlib import sha256
 import json
-import os
 import re
 import threading
 from uuid import uuid4
 
-from .storage import checked_replace, clone, now, strict_json_loads, valid_id, valid_time
+from .storage import clone, now, strict_json_loads, valid_id, valid_time, write_replace
 
 MAX_EVENTS = 300
 MAX_SKILLS = 5000
@@ -111,13 +110,7 @@ class ScanHistory:
             raise ValueError('Scan history is too large.')
         self.store.safe_directory()
         self.ensure_unchanged()
-        temporary = self.store.directory / ('scan-history-' + uuid4().hex + '.tmp')
-        descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, 'O_BINARY', 0), 0o600)
-        with os.fdopen(descriptor, 'wb') as stream:
-            stream.write(raw)
-            stream.flush()
-        digest = sha256(raw).hexdigest()
-        checked_replace(temporary, self.path, expected_digest=digest, check=self.ensure_unchanged)
+        digest = write_replace(self.store.directory, 'scan-history', raw, self.path, check=self.ensure_unchanged)
         self.state, self.disk_digest = value, digest
 
     def observe(self, skills, *, skipped=0):

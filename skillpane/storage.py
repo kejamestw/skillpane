@@ -83,6 +83,42 @@ def checked_replace(temporary, target, *, expected_digest, check):
         time.sleep(REPLACE_DELAYS[attempt])
 
 
+def write_replace(directory, prefix, data, target, *, check):
+    """Write a private, flushed temporary file, then replace target through the guards.
+
+    A failure removes only this call's temporary file, and only while the data
+    directory still resolves to itself; a rebound directory is left untouched.
+    Returns the digest of the written bytes.
+    """
+    digest = sha256(data).hexdigest()
+    temporary = directory / f'{prefix}-{uuid4().hex}.tmp'
+    descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, 'O_BINARY', 0), 0o600)
+    try:
+        with os.fdopen(descriptor, 'wb') as stream:
+            stream.write(data)
+            stream.flush()
+            os.fsync(stream.fileno())
+        checked_replace(temporary, target, expected_digest=digest, check=check)
+    except BaseException:
+        try:
+            if directory.resolve() == directory and temporary.is_file() and not temporary.is_symlink():
+                temporary.unlink()
+        except OSError:
+            pass
+        raise
+    if os.name == 'posix':
+        # Best effort: the replacement already happened and must not be reported as failed.
+        try:
+            handle = os.open(directory, os.O_RDONLY)
+            try:
+                os.fsync(handle)
+            finally:
+                os.close(handle)
+        except OSError:
+            pass
+    return digest
+
+
 def valid_id(value):
     return isinstance(value, str) and re.fullmatch(r'[a-zA-Z0-9_-]{1,80}', value) is not None
 
@@ -280,8 +316,8 @@ class Annotations:
                 return
             next_state['revision'] = uuid4().hex
             validate_state(next_state)
-            content = json.dumps(next_state, ensure_ascii=False, indent=2)
-            if len(content.encode('utf-8')) > MAX_BYTES:
+            content = json.dumps(next_state, ensure_ascii=False, indent=2).encode('utf-8')
+            if len(content) > MAX_BYTES:
                 raise ValueError('整理資料超過 4 MiB 上限，原資料維持不變。')
             self.safe_directory()
             self.ensure_unchanged()
@@ -291,13 +327,7 @@ class Annotations:
                 shutil.copy2(self.path, backup)
                 if os.name == 'posix':
                     backup.chmod(0o600)
-            temporary = self.directory / f'annotations-{uuid4().hex}.tmp'
-            descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, 'O_BINARY', 0), 0o600)
-            with os.fdopen(descriptor, 'w', encoding='utf-8', newline='\n') as stream:
-                stream.write(content)
-                stream.flush()
-            digest = sha256(content.encode('utf-8')).hexdigest()
-            checked_replace(temporary, self.path, expected_digest=digest, check=self.ensure_unchanged)
+            digest = write_replace(self.directory, 'annotations', content, self.path, check=self.ensure_unchanged)
             self.state = next_state
             self.disk_digest = digest
             self.error, self.legacy = None, False
