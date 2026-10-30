@@ -359,12 +359,15 @@ $('#skillList').addEventListener('keydown',event=>{
   const row=event.target.closest('.skill-row');
   if(!row || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey)return;
   const rows=[...document.querySelectorAll('#skillList .skill-row')],index=rows.indexOf(row);
-  const next={ArrowDown:index+1,ArrowUp:index-1,Home:0,End:rows.length-1}[event.key];
+  // Page keys move by a visible page; WebKit's default scroll from a focused row is unreliable.
+  const step=Math.max(1,Math.floor(Math.min($('#skillList').clientHeight,innerHeight)/Math.max(1,row.offsetHeight)));
+  const next={ArrowDown:index+1,ArrowUp:index-1,PageDown:index+step,PageUp:index-step,Home:0,End:rows.length-1}[event.key];
   if(next===undefined)return;
   event.preventDefault();
   const target=rows[Math.max(0,Math.min(rows.length-1,next))];
   selectSkill(target.dataset.skill);
-  target.focus();
+  target.focus({preventScroll:true});
+  target.scrollIntoView({block:'nearest'});
 });
 $('#searchInput').addEventListener('compositionend',event=>applySearch(event.target.value));
 $('#sortButton').addEventListener('click',()=>{state.sort=state.sort==='name'?'modified':'name';$('#sortButton').innerHTML=icon('sort')+`<span>${state.sort==='name'?'名稱':'修改時間'}</span>`;updateResults({resetScroll:true});});

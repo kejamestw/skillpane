@@ -62,10 +62,22 @@ test('long list is one Tab stop and arrow keys move the selection',async({page},
   await page.keyboard.press('Shift+Tab');
   expect(await active()).toBe(first);
   if(!info.project.name.includes('mobile')){
-    const list=page.locator('#skillList');
+    const position=()=>page.evaluate(()=>{
+      const row=document.activeElement,list=document.querySelector('#skillList');
+      const box=row.getBoundingClientRect(),bounds=list.getBoundingClientRect();
+      return {index:[...list.querySelectorAll('.skill-row')].indexOf(row),visible:box.top>=bounds.top-1 && box.bottom<=bounds.bottom+1,
+        selected:row.getAttribute('aria-pressed'),scrollTop:list.scrollTop,pageY:window.scrollY};
+    });
     await page.keyboard.press('PageDown');
-    await expect.poll(()=>list.evaluate(node=>node.scrollTop)).toBeGreaterThan(0);
-    expect(await page.evaluate(()=>window.scrollY)).toBe(0);
+    await page.keyboard.press('PageDown');
+    const paged=await position();
+    expect(paged.index).toBeGreaterThanOrEqual(2);
+    // The moved-to row must be revealed inside the list; the page body never scrolls.
+    expect(paged).toMatchObject({visible:true,selected:'true',pageY:0});
+    await page.keyboard.press('PageUp');
+    const back=await position();
+    expect(back.index).toBeLessThan(paged.index);
+    expect(back).toMatchObject({visible:true,selected:'true',pageY:0});
   }
 });
 
