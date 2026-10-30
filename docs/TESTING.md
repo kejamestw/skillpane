@@ -8,7 +8,7 @@ CI 在 GitHub Actions runner 執行。它在 runner 的 `127.0.0.1` 啟動獨立
 
 `tests/test_checked_replace.py` 的十一項測試使用合成資料，涵蓋 Windows 5／32／33 短暫失敗後成功、持續失敗五次中止、其他錯誤及非 Windows 不重試、等待期間原檔或暫存內容遭改寫，以及實際資料目錄的 junction／symlink 換向。另確認整理只建立一次備份、成功後可重新讀取、掃描紀錄只新增一筆事件，以及失敗時磁碟與記憶體不被新值覆蓋。
 
-固定等待 25／50／100／200 ms，測試 mock sleep 與替換失敗，不靠放慢測試、改權限或忽略錯誤來通過。修正候選完整預期 171 項：Windows 170 通過／1 平台略過，Linux 159 通過／12 平台略過；數量須依實際執行核對，舊提交的 160 項遠端證據不代表此候選已驗收。
+固定等待 25／50／100／200 ms，測試 mock sleep 與替換失敗，不靠放慢測試、改權限或忽略錯誤來通過。7f4cdde 的完整 CI 已核對四組各 171 項：Windows 170 通過／1 平台略過，Linux 159 通過／12 平台略過；證據見 [安全測試紀錄](SECURITY_TESTING.md)。後續變更仍須核對自己的實際結果。
 
 ## Python 與 CLI 流程
 
@@ -92,6 +92,22 @@ npm run test:browser -- --project=chromium-desktop
 每個案例建立全新的合成服務、browser context 與動態 port；不重用既有服務、不接受外部 base URL。瀏覽器封鎖服務以外的網路請求，提示詞腳本攔截複製操作，不碰 OS 剪貼簿；未捕捉的 JavaScript 錯誤使測試失敗。預期的衝突或錯誤輸入 HTTP 回應由個別腳本驗證。服務子程序在測試結束時停止。失敗時不自動重試，以免掩蓋不穩定案例。
 
 輸出採終端文字；不錄製 screenshot、trace、video，也不在 CI 上傳 artifacts。失敗診斷與合成資料只留在 Git 忽略的 `.runtime/`，不加入 repo。人工逐步除錯仍可依 [開發指南](DEVELOPMENT.md) 開啟獨立 fixture，逐一執行既有腳本。
+
+### 專案專用的本機測試瀏覽器
+
+若 Windows 共用的 Playwright 快取在瀏覽器啟動前就失敗，可選用專案專用快取。先完成上方 `npm ci`，再執行：
+
+```sh
+npm run browsers:local
+npm run test:browser:local
+npm run test:browser:local -- --project=firefox-desktop
+```
+
+安裝與測試入口固定使用 Git 忽略的 `.runtime/playwright-browsers/`，透過已鎖定的本機 Playwright CLI 執行，停用快取自動回收，不刪除其他專案瀏覽器。測試入口不自動下載；尚未安裝或缺少必要瀏覽器時會失敗，須先執行安裝指令。這只供開發驗證，不影響日常 Skillpane 啟動、個人瀏覽器或 CI 原有的 `npm run test:browser`。
+
+公司憑證已加入系統信任庫、但 Node 下載出現憑證鏈錯誤時，可改用 `npm run browsers:local -- --system-ca`；須使用支援 `--use-system-ca` 的 Node（本機已驗證 Node 24）。選項只作用於這次安裝子程序，不修改全域環境或關閉 TLS 驗證。Linux 仍須依上方指南備妥系統函式庫；此入口不代為安裝 OS 套件。`SKILLPANE_TEST_PYTHON` 仍可指定 Python。
+
+2026-10-30 16:37:21（台灣時間，UTC+8），本機 Windows 使用此入口完成 24 項、零失敗、零自動重試；包含 Firefox 桌面六項，日誌在記憶體機密掃描通過。程式基準為 `7f4cdde`，本批入口與文件尚未提交，不能視為新提交已經過遠端 CI。快取路徑問題的診斷及限制見 [安全測試紀錄](SECURITY_TESTING.md)；工具輔助操作結果見 [實機驗收](MANUAL_ACCEPTANCE.md)。
 
 ## 結果判讀與限制
 

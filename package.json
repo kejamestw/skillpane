@@ -3,7 +3,9 @@
   "private": true,
   "description": "Development-only browser regressions; not required to run Skillpane.",
   "scripts": {
-    "test:browser": "playwright test"
+    "test:browser": "playwright test",
+    "browsers:local": "node scripts/local_browser_tests.cjs install",
+    "test:browser:local": "node scripts/local_browser_tests.cjs test"
   },
   "engines": { "node": ">=22" },
   "devDependencies": { "@playwright/test": "1.64.1" }
