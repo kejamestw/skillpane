@@ -80,4 +80,12 @@ Windows 啟停測試會印出允許清單內的階段耗時，說明與安全限
 
 同 SHA 的 [手動診斷](https://github.com/kejamestw/skillpane/actions/runs/41003075815) 於 2026-10-30 12:28:22 至 12:29:16（台灣時間，UTC+8）兩組成功、共 14 筆；兩份日誌在記憶體掃描通過，零 artifacts。Windows PowerShell 5.1 的 `header-join` 首次路徑步驟約 19.8 秒，`header-qualified` 整筆約 0.2 秒；舊 `entry-body-parse` 首次路徑步驟約 12 秒。PowerShell 7 各筆約 0.4～0.6 秒。每案例僅一次、固定順序，可能受快取與排程影響；這縮小了未限定命令探索的慢點，未確認底層原因，也不證明先前 60 秒超時已修復。
 
-後續正式入口首次呼叫改為模組限定，診斷契約同步更新；`header-join` 保留舊基準，`entry-body-parse` 使用目前入口方式。這批修正仍須以自己的新 SHA 執行八項完整 CI 及手動兩組對照，不能沿用 `0aa65d1` 的成功結果。
+## 入口限定修正與剩餘等待
+
+`652ae380291b6b0551a9a386a0ec1afaf13e71c3` 的 [完整 CI](https://github.com/kejamestw/skillpane/actions/runs/41008788228) 於 2026-10-30 13:30:15 至 13:48:33（台灣時間，UTC+8）首次執行八項成功。四組 Python 各 158 項，Windows 各 157 通過／1 略過、Linux 各 147 通過／11 略過；browser 24 項通過。兩組 Windows 各 48 次啟停及六次 Probe 無 timeout／spawn-error／cleanup-error。八份日誌在記憶體掃描通過，repo 私人、零 artifacts。
+
+同 SHA 的 [手動診斷](https://github.com/kejamestw/skillpane/actions/runs/41008807663) 於 2026-10-30 13:30:26 至 13:31:27（台灣時間，UTC+8）兩組、共 14 筆成功；兩份日誌另掃描通過、零 artifacts。Windows PowerShell 5.1 的舊未限定基準約 33.2 秒，使用目前入口限定方式的 `entry-body-parse` 約 0.33 秒。
+
+正式 Start 首標記已縮短，但完整啟停尚未一致加速：Windows Python 3.11 的成功 Start 中位數約 25.1→20.0 秒，3.13 則約 25.1→25.3 秒。3.11 的 `record-read` 中位數約 18.7 秒，顯示等待移到紀錄讀取階段；不能把入口探針改善當作完整問題已修復，也未確認底層探索為何變慢。
+
+下一批改由共用腳本明確載入 `$PSHOME/Modules/` 內 Utility 與 CimCmdlets manifest，不更改 PSModulePath 或執行原則。新版本完整測試預期 159 項；手動案例仍為兩組各七筆，但 `shared-ready` 現在包含上述載入成本，最小 Probe 的工作量亦隨共用腳本增加。仍須用新 SHA 另外驗收八項完整 CI 與兩組手動診斷，不沿用 `652ae38` 的成功或將不同工作量當成嚴格效能基準。

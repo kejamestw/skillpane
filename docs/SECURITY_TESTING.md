@@ -1,12 +1,22 @@
 # 安全測試紀錄
 
-## 入口首次命令模組限定：本機驗證，遠端待驗收
+## 明確載入必要內建模組：本機驗證，遠端待驗收
+
+共用啟停腳本在定義函式前，從目前 `$PSHOME/Modules/` 的固定 manifest 載入 Microsoft.PowerShell.Utility 及 CimCmdlets，保留原本 JSON 解析、CIM provider 與 HTTP 命令。沒有改成自製解析或略過身分驗證，不修改 PSModulePath、全域執行原則或自動載入偏好；不使用 Force，不下載套件，也不回退到其他模組來源。任一載入失敗即停止，包含原先無程序紀錄的 Stop 情境也必須先完成初始化。
+
+新增一項 Windows 回歸，在 PowerShell 5.1／7 分別模擬兩個模組載入失敗，核對固定 manifest 與 Stop 錯誤處理契約、啟停函式尚未定義及沒有產生應用程式資料。原有 provider 查詢錯誤、偽裝健康回應、紀錄竄改、跨 checkout、鎖衝突與程序身分測試仍完整執行。
+
+於 2026-10-30 14:01:02（台灣時間，UTC+8）完成 Windows／Python 3.12.14 全套 159 項：158 通過、1 項 POSIX 平台略過，耗時 238.703 秒。48 次合成啟停及六次 Probe 無 timeout／spawn-error／cleanup-error，完整日誌在記憶體機密掃描通過。另完成兩種 shell 共 14 筆手動診斷、未啟動服務、日誌掃描通過；本機目前入口案例的共用腳本載入步驟約 236／67 ms，包含新 import。這不是雲端速度保證，新 SHA 的完整 CI 與兩組手動診斷仍待驗收，不沿用 `652ae38` 的成功。
+
+## 入口首次命令模組限定：本機及遠端驗收
 
 Start／Stop 僅將首次 `Join-Path` 呼叫限定為 `Microsoft.PowerShell.Management\Join-Path`，保留 provider 路徑行為與原有身分驗證。共用啟停腳本、HTTP、資料格式與安全負向案例未放寬；不修改 ExecutionPolicy 或 PSModulePath。診斷工具的入口截斷契約同步更新，保留舊 `header-join` 基準，讓 `entry-body-parse` 使用目前正式入口的首次限定方式。
 
 於 2026-10-30 13:14:45（台灣時間，UTC+8）完成 Windows／Python 3.12.14 全套 158 項：157 通過、1 項 POSIX 平台略過，耗時 188.811 秒。48 次合成啟停與六次 Probe 均完成，無 timeout／spawn-error／cleanup-error；全套日誌在記憶體機密掃描通過。另完成兩種 PowerShell 共 14 筆實際診斷，未啟動服務，日誌掃描通過。入口截斷、CRLF 與固定輸出契約仍受八項診斷回歸檢查。
 
-本機結果不代表雲端耗時已改善。正式修正仍待新 SHA 的八項完整 CI 與兩組手動診斷驗收；下方 `0aa65d1` 的遠端證據屬修正前版本，不當作本批已通過，也不是零漏洞或獨立滲透測試證明。
+提交 `652ae380291b6b0551a9a386a0ec1afaf13e71c3` 的 [完整 CI](https://github.com/kejamestw/skillpane/actions/runs/41008788228) 於 2026-10-30 13:30:15 至 13:48:33（台灣時間，UTC+8）首次執行八項成功。四組 Python 各 158 項，Windows 各 157 通過／1 略過、Linux 各 147 通過／11 略過；browser 24 項通過，兩組 Windows 各 48 次啟停及六次 Probe 無 timeout／spawn-error／cleanup-error。八份日誌在記憶體掃描通過，repo 私人、零 artifacts。
+
+同 SHA 的 [手動診斷](https://github.com/kejamestw/skillpane/actions/runs/41008807663) 於 2026-10-30 13:30:26 至 13:31:27（台灣時間，UTC+8）兩組、共 14 筆成功；兩份日誌另掃描通過、零 artifacts。Windows PowerShell 5.1 的舊未限定基準約 33.2 秒，目前入口方式約 0.33 秒。但正式 Start 中位數在 Python 3.11 約 25.1→20.0 秒、3.13 約 25.1→25.3 秒，尚未一致加速；3.11 的 record-read 中位數約 18.7 秒，等待已移到紀錄讀取。上方必要模組修正仍須另以新 SHA 驗收，不能將本批成功視為完整慢速已修復或零漏洞保證。
 
 ## 手動啟動因素診斷：本機及遠端驗收
 

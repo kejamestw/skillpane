@@ -1,4 +1,9 @@
 # Shared by Start.ps1 and Stop.ps1; Windows PowerShell 5.1 and PowerShell 7.
+# Load only bundled modules; do not rediscover every installed module when the
+# first JSON, HTTP or CIM command is encountered. Missing modules must fail closed.
+Import-Module ([IO.Path]::Combine($PSHOME, 'Modules', 'Microsoft.PowerShell.Utility', 'Microsoft.PowerShell.Utility.psd1')) -ErrorAction Stop
+Import-Module ([IO.Path]::Combine($PSHOME, 'Modules', 'CimCmdlets', 'CimCmdlets.psd1')) -ErrorAction Stop
+
 $script:SkillpaneLauncherClock = $null
 if ($env:SKILLPANE_LAUNCHER_DIAGNOSTICS -eq '1') {
     $script:SkillpaneLauncherClock = [Diagnostics.Stopwatch]::StartNew()

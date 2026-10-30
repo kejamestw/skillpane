@@ -280,6 +280,42 @@ class LauncherTests(unittest.TestCase):
                     if not enabled:
                         self.assertEqual(result.stderr, '')
 
+    def test_required_module_failure_stops_before_launcher_functions(self):
+        script = self.base / 'required-module-failure.ps1'
+        script.write_text('''param([string]$Launcher,[string]$FailedModule)
+$ErrorActionPreference='Stop'
+function Import-Module {
+    param([string]$Name,[string]$ErrorAction)
+    $module=[IO.Path]::GetFileNameWithoutExtension($Name)
+    $expected=[IO.Path]::Combine($PSHOME,'Modules',$module,($module+'.psd1'))
+    if($Name -ne $expected -or $ErrorAction -ne 'Stop') {throw 'Invalid module contract'}
+    if($module -eq $FailedModule) {throw 'Synthetic required module failure'}
+    Microsoft.PowerShell.Core\\Import-Module $Name -ErrorAction Stop
+}
+$rejected=$false
+try {. $Launcher} catch {
+    if($_.Exception.Message -ne 'Synthetic required module failure') {throw}
+    $rejected=$true
+}
+if(-not $rejected) {throw 'Required module failure was accepted'}
+if(Get-Command Read-SkillpaneRecord -CommandType Function -ListImported -ErrorAction SilentlyContinue) {
+    throw 'Launcher functions were defined despite failed initialization'
+}
+Write-Output 'verified'
+''', encoding='utf-8')
+        for shell in dict.fromkeys([POWERSHELL, PWSH]):
+            if not shell:
+                continue
+            for module in ('Microsoft.PowerShell.Utility', 'CimCmdlets'):
+                with self.subTest(shell='PowerShell7' if shell == PWSH else 'WindowsPowerShell', module=module):
+                    result = subprocess.run([shell, '-NoProfile', '-File', str(script),
+                        str(self.bundle / 'scripts/Launcher.ps1'), module], env=self.env,
+                        capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW, timeout=60)
+                    self.assertEqual(result.returncode, 0, 'Required module failure did not stop initialization.')
+                    self.assertEqual(result.stdout.strip(), b'verified')
+                    self.assertFalse((self.bundle / '.runtime').exists())
+                    self.assertFalse((self.bundle / '.data').exists())
+
     def test_listener_query_errors_are_not_treated_as_an_empty_port(self):
         script = self.base / 'listener-query-contract.ps1'
         script.write_text('''param([string]$Launcher,[string]$Mode)

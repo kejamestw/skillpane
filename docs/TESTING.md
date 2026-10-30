@@ -132,6 +132,16 @@ python -B -m unittest discover -s tests -p test_launcher.py -v
 
 依據：[Playwright 安裝](https://playwright.dev/docs/intro)、[測試瀏覽器](https://playwright.dev/docs/browsers)。
 
+## 必要內建模組載入
+
+Windows 共用啟停腳本從目前 PowerShell 的 `$PSHOME/Modules/` 載入 Microsoft.PowerShell.Utility 與 CimCmdlets manifest，避免首次 JSON、HTTP、CIM 命令再探索其他已安裝模組。兩種 PowerShell 各使用自己的內建版本，沒有安裝新套件、修改模組路徑或放寬執行原則；缺少或載入失敗時停止，不回退到其他來源，連無紀錄的 Stop 也先完成初始化。
+
+負向案例在合成副本攔截 Import-Module，分別讓兩個必要模組失敗，確認沒有建立啟停函式或應用程式資料；`Get-Command -ListImported` 僅檢查已載入命令。搭配原有 provider 錯誤拒絕及真實程序／socket／健康回應驗證，不以成功 import 代替安全身分測試。
+
+原本最小 Probe 與手動診斷仍載入共用腳本，因此也包含這兩個模組；`shared-ready` 的相鄰步驟差包含載入成本。共用腳本的診斷時鐘在 import 後開始，但父程序首次標記觀測涵蓋 import，兩種時間都要核對，避免只是移動等待位置。不把不同版本最小 Probe 的工作量當作相同效能基準。完整測試預期 159 項，Windows 158 通過／1 平台略過；其他平台略過 Windows 專用案例，實際數量依 runner 結果核對。
+
+依據：[Import-Module 的明確檔案載入與錯誤處理](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/import-module?view=powershell-5.1)。這是載入方式的依據，並不保證特定 runner 的速度。
+
 ## 手動啟動因素診斷
 
 `tests/startup_probe.py` 是開發工具，不是面板功能，也不是效能基準。先前雲端正式案例的首標記前約有 21～24 秒等待，而最小探針僅約 0.3 秒；此工具用固定案例縮小差異來源，不把成功執行當作超時根因已修復。
