@@ -172,6 +172,14 @@ function renderList() {
     $('#skillList').innerHTML=skills.map(rowHtml).join('') || emptyHtml(state.view==='favorites'?'還沒有收藏的技能':'沒有符合條件的技能');
     $('#listFootnote').textContent=state.view==='other'?'快取不代表已啟用；不同版本已收合顯示。':'共用連結合併顯示，不重複計數。';
   }
+  syncRowTabStops();
+}
+
+// A long list is a single Tab stop (the selected row); arrow keys move within it.
+function syncRowTabStops() {
+  const rows=[...document.querySelectorAll('#skillList .skill-row')];
+  const current=rows.find(row=>row.dataset.skill===state.selected) || rows[0];
+  rows.forEach(row=>{row.tabIndex=row===current?0:-1;});
 }
 
 function updateResults({resetScroll=false,renderSelected=false}={}) {
@@ -209,6 +217,7 @@ function selectSkill(id) {
     row.classList.toggle('selected',selected);
     row.setAttribute('aria-pressed',String(selected));
   });
+  syncRowTabStops();
   renderDetail();
 }
 
@@ -346,6 +355,17 @@ document.addEventListener('click', async event=>{
 // IME composition text (e.g. Zhuyin symbols) is not a query yet; compositionend applies the result.
 function applySearch(value){const query=value.trim().toLowerCase();if(query===state.query)return;state.query=query;updateResults({resetScroll:true});}
 $('#searchInput').addEventListener('input',event=>{if(!event.isComposing)applySearch(event.target.value);});
+$('#skillList').addEventListener('keydown',event=>{
+  const row=event.target.closest('.skill-row');
+  if(!row || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey)return;
+  const rows=[...document.querySelectorAll('#skillList .skill-row')],index=rows.indexOf(row);
+  const next={ArrowDown:index+1,ArrowUp:index-1,Home:0,End:rows.length-1}[event.key];
+  if(next===undefined)return;
+  event.preventDefault();
+  const target=rows[Math.max(0,Math.min(rows.length-1,next))];
+  selectSkill(target.dataset.skill);
+  target.focus();
+});
 $('#searchInput').addEventListener('compositionend',event=>applySearch(event.target.value));
 $('#sortButton').addEventListener('click',()=>{state.sort=state.sort==='name'?'modified':'name';$('#sortButton').innerHTML=icon('sort')+`<span>${state.sort==='name'?'名稱':'修改時間'}</span>`;updateResults({resetScroll:true});});
 $('#detailPane').addEventListener('input',event=>{if(event.target.id==='noteInput'){const saved=state.data.annotations[state.selected]?.note || '';if(event.target.value===saved)state.drafts.delete(state.selected);else state.drafts.set(state.selected,event.target.value);$('#noteState').textContent=state.drafts.has(state.selected)?'有尚未儲存的筆記':'只儲存在這台電腦，不修改技能內容';}});

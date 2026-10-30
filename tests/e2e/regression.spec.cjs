@@ -35,6 +35,40 @@ test('IME composition text filters only after composition ends',async({page})=>{
   await expect(page.locator('#detailPane h2')).toHaveText('fixture-149');
 });
 
+test('long list is one Tab stop and arrow keys move the selection',async({page},info)=>{
+  const rows=page.locator('#skillList .skill-row');
+  const active=()=>page.evaluate(()=>document.activeElement?.dataset?.skill || null);
+  await expect(rows.first()).toBeVisible();
+  await expect(page.locator('#skillList .skill-row[tabindex="0"]')).toHaveCount(1);
+  await page.locator('#searchInput').focus();
+  let presses=0;
+  while(presses<20 && !(await active())){await page.keyboard.press('Tab');presses++;}
+  expect(presses).toBeLessThan(20);
+  const first=await active();
+  await page.keyboard.press('ArrowDown');
+  const second=await active();
+  expect(second).not.toBe(first);
+  const secondRow=page.locator(`#skillList .skill-row[data-skill="${second}"]`);
+  await expect(secondRow).toHaveAttribute('aria-pressed','true');
+  await expect(secondRow).toHaveAttribute('tabindex','0');
+  await expect(page.locator('#skillList .skill-row[tabindex="0"]')).toHaveCount(1);
+  await page.keyboard.press('End');
+  expect(await active()).toBe(await rows.last().getAttribute('data-skill'));
+  await expect(page.locator('.detail-code-name')).toContainText(await rows.last().locator('.row-name').textContent());
+  await page.keyboard.press('Home');
+  expect(await active()).toBe(first);
+  await page.keyboard.press('Tab');
+  expect(await page.evaluate(()=>Boolean(document.activeElement?.closest('#detailPane')))).toBe(true);
+  await page.keyboard.press('Shift+Tab');
+  expect(await active()).toBe(first);
+  if(!info.project.name.includes('mobile')){
+    const list=page.locator('#skillList');
+    await page.keyboard.press('PageDown');
+    await expect.poll(()=>list.evaluate(node=>node.scrollTop)).toBeGreaterThan(0);
+    expect(await page.evaluate(()=>window.scrollY)).toBe(0);
+  }
+});
+
 test('real input, scrolling, and persisted reading preferences',async({page},info)=>{
   await page.locator('#searchInput').fill('fixture-149');
   await expect(page.locator('.skill-row')).toHaveCount(1);
