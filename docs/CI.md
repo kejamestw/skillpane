@@ -23,7 +23,8 @@ Push 比較 before／after 並核對 checkout HEAD；PR 比較 base 與 head 的
 
 ## 每次執行與最終結果
 
-- `secrets` 不依賴分流，每次 push／PR／手動流程都掃私有路徑及完整可到達歷史、核對 Gitleaks checksum。沒有 workflow 級 paths-ignore。
+- 觸發條件為推送到 `main`、pull request 與手動執行。其他分支的推送不另跑，避免與同一分支的 PR 重複；同一 PR 有新提交時取消較舊的執行，`main` 的每次推送都保留自己的完整結果。
+- `secrets` 不依賴分流，每次 `main` 推送／PR／手動流程都掃私有路徑及完整可到達歷史、核對 Gitleaks checksum。沒有 workflow 級 paths-ignore。
 - 完整流程執行四組 Python 與 Chromium／Firefox；文件流程明確略過這些工作，不能稱作已執行通過。
 - `validation` 以 `always()` 等待 changes、tests、browser、secrets。分流與 secrets 必須成功；完整模式須 tests／browser 成功，文件模式須是預期的 skipped。空輸出、失敗、取消及非預期略過均失敗。
 - 完整流程預期八項工作；文件模式的 matrix 可能折疊為單一 skipped 工作，不假設仍有四項。
