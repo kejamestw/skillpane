@@ -1,5 +1,17 @@
 # 安全測試紀錄
 
+## Skillpane 公開前唯讀核對（2026-10-30 晚間）
+
+範圍僅 `kejamestw/skillpane`，當時 main 為 `767b59ad58bca3fbefb88a672967894f0bfb6c26`；沒有修改 repository 設定、內容可見度或其他專案。候選 92 個檔案及本機可到達歷史的公開邊界、機密與 workflow lint 檢查通過。
+
+另建立全新本機 mirror，涵蓋 GitHub 當時提供的 main、Dependabot 分支及 PR #1 的 head／merge refs，共 25 筆可到達提交；完整歷史機密掃描通過，三個提交信箱均為 GitHub noreply。這比既有 checkout 的 23 筆歷史多包含未合併 PR，不宣稱涵蓋 GitHub 未提供的已刪除或不可到達資料。
+
+21:54:00（台灣時間，UTC+8）完成 Git 之外文字檢查：一筆 Issue／PR 項目，對話留言、PR review 本文、review comments 與 commit comments 均為零；文字只在記憶體掃描，無機密命中，未發現附件連結。當時 Releases／release assets 與 Actions artifacts 均為零；新附件或新提交出現後須再驗收，不沿用此快照。
+
+已回讀 repo 維持私人、Actions 僅允許 GitHub 官方 Actions、要求完整 SHA、預設工作流程唯讀且不能核准 PR；Dependabot alerts 已啟用。這不等於沒有相依套件漏洞。`767b59a` 的 [完整 CI](https://github.com/kejamestw/skillpane/actions/runs/41029582717) 八項成功，四組 Python 各 171 項及 browser 24 項，原八份日誌機密掃描通過、零 artifacts。
+
+LICENSE 保留 MIT 全文及上游版權聲明，來源說明與上游完整授權檔均存在；GitHub API 當時的自動辨識仍為 `NOASSERTION`，須在公開前確認顯示與 README 說明一致，不能由自動辨識結果推定缺少授權。操作驗收及鍵盤效率待改善見 [驗收清單](MANUAL_ACCEPTANCE.md)。私下回報依既定決定在公開後立即啟用並驗收，目前不宣稱可用。公開前仍須針對當時的最終版本及 Git 之外新增內容重查，repository 不會因這份核對而自動公開。
+
 ## 本機瀏覽器啟動診斷與隔離快取
 
 2026-10-30（台灣時間，UTC+8），對 Playwright 1.64.1 管理的 Firefox 157.0／build 1555 進行獨立啟動診斷；不載入 Skillpane 時，Node 回傳 `spawn UNKNOWN`，Python 建立程序回傳 Windows 14001。Windows SideBySide 事件 33 指向 `mozglue` 相依組件解析失敗，故不能把這六項啟動失敗歸因於面板程式或電腦效能。這是測試用瀏覽器，不是使用者一般 Firefox 的故障判定。
