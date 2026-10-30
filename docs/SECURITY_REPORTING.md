@@ -2,11 +2,23 @@
 
 這是維護者的設定與驗收流程。研究者應依 [安全政策](../SECURITY.md) 回報；本文件本身不代表管道已啟用。
 
-維護者於 2026-10-29（台灣時間，UTC+8）選定：暫不設安全信箱，公開時啟用 GitHub 原生回報。Repository 目前維持私人；啟用、入口與實際收件均尚未驗收。
+維護者於 2026-10-29（台灣時間，UTC+8）選定：暫不設安全信箱，公開時啟用 GitHub 原生回報。
 
-## 私人期間
+## 目前狀態
 
-GitHub 原生 private vulnerability reporting 供公開 repository 啟用，目前 Skillpane 維持私人。一般 repository API 可讀取，但回報功能 API 回傳 404；這不能單獨當成登入失敗的證據。
+| 項目 | 結果 |
+| --- | --- |
+| 公開 | 2026-10-31 00:12:58（台灣時間，UTC+8），當時 main 為 `ce12e1f0b520bb1dcd8307ec31e134e9c6961385`，該提交 CI 成功 |
+| 公開前重查 | 候選 92 檔與完整歷史機密掃描、公開邊界通過；Issue／PR 各 1 筆（Dependabot PR #1 已關閉，唯一留言為其關閉訊息），release、artifacts 為零；最新 CI 日誌在記憶體掃描無發現 |
+| API 啟用 | 公開後立即啟用，`GET /repos/kejamestw/skillpane/private-vulnerability-reporting` 回應 `enabled: true` |
+| 一般回報者入口 | 尚未驗收：須以非擁有者帳號開啟 Security → Advisories → Report a vulnerability 表單 |
+| 維護者收件 | 尚未驗收：送出合成測試報告須另行授權 |
+
+入口與收件驗收完成前，不宣傳回報管道或發布新版本。
+
+## 私人期間（歷史紀錄）
+
+GitHub 原生 private vulnerability reporting 供公開 repository 啟用，私人期間無法使用。當時一般 repository API 可讀取，但回報功能 API 回傳 404；這不能單獨當成登入失敗的證據。
 
 已授權協作者可以透過與維護者既有的私下管道聯絡。外部人士沒有私人 repo 的存取權時，也不能建立 Issue 要求聯絡方式。因此公開前必須選定回報管道並備妥啟用、驗收操作；目前不可用的連結須明列狀態。
 

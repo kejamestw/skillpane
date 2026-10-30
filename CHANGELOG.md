@@ -2,6 +2,7 @@
 
 ## 0.4.0 — Unreleased
 
+- Repository 於 2026-10-31 公開，並啟用 GitHub 私下漏洞回報、secret scanning 與 push protection、Dependabot 安全更新、CodeQL 及 `main` 分支保護。安全政策、支援、README、Issue 表單與路線圖改為公開後的實際狀態；回報入口與收件尚待維護者驗收，完成前不發布正式版本。
 - 匯入套件時檢查 Python 版本，低於 3.11 直接以「Skillpane requires Python 3.11 or newer.」結束，不再等到執行中途才失敗；Windows 啟動器提示同步改為 3.11+（原為 3.10+，與 README 及 CI 矩陣不一致）。啟動器若選到過舊的 Python，可設定 `SKILLPANE_PYTHON` 指定其他版本。
 - CI 的 `actions/setup-node` 由 v6 升至 v7.1.0，仍以完整 commit SHA 固定；版本說明未列影響本專案的破壞性變更。對應 Dependabot PR #1。
 - CI 的推送觸發限定 `main`，其他分支改由 pull request 執行，避免同一提交跑兩次；同一 PR 有新提交時取消較舊的執行，`main` 的每次推送仍保留各自的完整結果。

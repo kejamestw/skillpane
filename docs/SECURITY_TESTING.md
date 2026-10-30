@@ -1,5 +1,13 @@
 # 安全測試紀錄
 
+## 公開與 GitHub 安全設定（2026-10-31）
+
+擁有者授權後，repository 於 2026-10-31 00:12:58（台灣時間，UTC+8）改為公開，當時 main 為 `ce12e1f0b520bb1dcd8307ec31e134e9c6961385`。公開前重查候選檔、完整歷史、Git 以外內容與最新 CI 日誌，結果見 [回報管道驗收](SECURITY_REPORTING.md)。
+
+公開後立即以 API 設定並回讀：私下漏洞回報 `enabled: true`；secret scanning、push protection 與 Dependabot 安全更新為 enabled，Dependabot alerts 原已啟用；CodeQL default setup 為 configured，涵蓋 Actions、JavaScript／TypeScript 與 Python。首次 CodeQL 分析於 00:13:48 至 00:15:04 成功，開啟中的 code scanning 與 secret scanning 警示均為零；這只代表當次規則集的結果，不等於沒有漏洞。
+
+`main` 分支保護：禁止 force push 與刪除，必要檢查為 GitHub Actions（app 15368）回報的 `validation`；不要求 PR 審查，也不對管理員強制，擁有者可直接推送，外部 PR 須通過 CI。一般回報者入口與維護者收件尚未驗收，正式版本待驗收後發布。
+
 ## 公開前審查修正：本機及遠端驗收
 
 2026-10-30 晚間（台灣時間，UTC+8）以 `76d69e3` 為基準完成程式碼審查，之後 13 筆提交（`b8c5225` 至 `626ab6a`）逐項修正。這是維護期間的內部審查，不是獨立滲透測試。

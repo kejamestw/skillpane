@@ -29,9 +29,9 @@ Skillpane 是早期的本機個人工具。目前只對最新 0.4 修訂版提�
 
 請勿把漏洞利用細節、真實技能、個人筆記或憑證貼在公開 Issue／PR。
 
-目前 repository 維持私人，尚未提供外部人士可使用的私下漏洞回報入口，也未公布專用安全信箱。GitHub 原生 private vulnerability reporting 需公開 repository 才能啟用；已具 repository 權限的協作者請透過與維護者既有的私下管道聯絡。沒有存取權的人也無法在私人 repo 建立聯絡 Issue。不要猜測聯絡信箱，或將 Git 提交使用的 noreply 地址當作收件管道。
+Repository 已於 2026-10-31（台灣時間，UTC+8）公開，並已啟用 GitHub 原生 private vulnerability reporting（API 確認 `enabled: true`）。請透過 [Report a vulnerability](https://github.com/kejamestw/skillpane/security/advisories/new) 私下回報。不設專用安全信箱；不要猜測聯絡信箱，或將 Git 提交使用的 noreply 地址當作收件管道。
 
-維護者已選定公開時採用 GitHub 原生回報，暫不設專用安全信箱。公開前完成準備並取得可見度及設定變更授權；repository 公開後須立即啟用功能，再確認 [Report a vulnerability](https://github.com/kejamestw/skillpane/security/advisories/new) 入口與收件，未驗收前不對外宣布可回報或發布新版本。目前不宣稱此入口可用。設定、收件驗收與後續處理見 [回報管道驗收](docs/SECURITY_REPORTING.md)。
+一般回報者的表單入口與維護者收件尚待驗收；完成前維護者不另行宣傳回報管道，也不發布新版本。設定、收件驗收與後續處理見 [回報管道驗收](docs/SECURITY_REPORTING.md)。
 
 報告請提供版本、平台、受影響功能、最小合成重現步驟、攻擊所需權限及影響範圍。以測試值替代憑證；若真實憑證已暴露，請先向發行者撤銷／輪替。
 
@@ -39,10 +39,10 @@ Skillpane 是早期的本機個人工具。目前只對最新 0.4 修訂版提�
 
 本機攻擊情境回歸、工具使用方式及尚未驗證範圍見 [安全測試紀錄](docs/SECURITY_TESTING.md)。這是維護過程中的內部驗證，不是獨立滲透測試。
 
-請完成 [開發指南的檢查表](docs/DEVELOPMENT.md#公開前檢查)，並確認 CI 結果。私有漏洞回報、secret scanning、push protection、CodeQL 及分支保護等 GitHub 功能是否可用取決於 repository 狀態與方案，設定檔本身不表示已啟用。
+請完成 [開發指南的檢查表](docs/DEVELOPMENT.md#公開前檢查)，並確認 CI 結果。公開後已啟用私下漏洞回報、secret scanning 與 push protection、Dependabot 安全更新、CodeQL default setup，以及 `main` 的分支保護（禁止 force push 與刪除；PR 須通過 CI `validation`）。設定紀錄見 [安全測試紀錄](docs/SECURITY_TESTING.md)；啟用設定不等於沒有漏洞。
 
-公開前須先備妥選定管道的授權、啟用及驗收操作；GitHub 原生回報於 repository 公開後立即啟用並確認入口與收件。未驗收前不宣布可回報或發布新版本，不能宣稱尚未啟用的服務已在運作。
+回報入口與收件驗收完成前，不對外宣傳回報管道或發布新版本，不能把已啟用的設定寫成已驗收的收件流程。
 
 參考：[Python HTTP server 安全限制](https://docs.python.org/3/library/http.server.html)、[OWASP DOM XSS 防護](https://cheatsheetseries.owasp.org/cheatsheets/DOM_based_XSS_Prevention_Cheat_Sheet.html)、[GitHub 私下漏洞回報](https://docs.github.com/en/code-security/how-tos/report-and-fix-vulnerabilities/configure-vulnerability-reporting/configure-for-a-repository)。
 
-The repository is currently private. No external private reporting channel or dedicated security mailbox has been published. Authorized collaborators should contact the maintainer through an existing private channel. People without repository access cannot open an issue here. The maintainer has chosen GitHub private vulnerability reporting for publication, without a separate security mailbox. Prepare and authorize the visibility and settings changes before publication, then enable and verify reporting as soon as the repository becomes public. Do not announce reporting availability or publish a new release before verification. Do not disclose exploit details in public issues or send reports to a Git noreply address. This is a local-only, early-stage tool, not a public hosting service or independently audited security product.
+The repository became public on 2026-10-31 (UTC+8), and GitHub private vulnerability reporting is enabled (confirmed through the API). Report privately through [Report a vulnerability](https://github.com/kejamestw/skillpane/security/advisories/new). There is no dedicated security mailbox. Maintainer verification of the reporter-side form and of report receipt is still pending; until then the channel is not separately announced and no new release is published. Do not disclose exploit details in public issues or send reports to a Git noreply address. This is a local-only, early-stage tool, not a public hosting service or independently audited security product.

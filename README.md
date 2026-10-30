@@ -21,7 +21,7 @@ git clone https://github.com/kejamestw/skillpane.git
 cd skillpane
 ```
 
-Repository 尚為私人時需要帳號存取權；不要將 token 放進 clone 網址。
+Repository 為公開，clone 不需要帳號或 token。
 
 ```sh
 python -m skillpane
