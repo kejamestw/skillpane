@@ -99,6 +99,10 @@ Windows 啟停測試會印出允許清單內的階段耗時，說明與安全限
 
 後續只修復測試：將不存在函式的 Get-Command 查詢換為 Function provider 直接檢查，並新增固定階段與逾時防洩漏摘要。缺失命令查詢是待排除的搜尋路徑，首次超時缺少逐步標記，尚未確認實際停在哪一行；新版本補標記以便辨識。保留 60 秒與全部負向案例，不以放寬時間或重跑原提交處理。新增跨平台防洩漏測試後預期 160 項，仍須以新 SHA 驗收完整八項 CI；正式啟停程式不因這批測試修正調整。
 
+## 公開前審查修正：遠端驗收完成
+
+`783156ebc65d7f7bdab94bb93ccc30de7fe1ef19` 是第一個在新觸發規則下推送的提交，確認限定分支後推送 `main` 仍正常觸發。[完整 CI](https://github.com/kejamestw/skillpane/actions/runs/41082646694) 於 2026-10-30 23:38:57 至 23:41:39（台灣時間，UTC+8）八項首次成功，約 162 秒；四組 Python 各 185 項、browser 28 項，Windows 測試階段約 111／137 秒。其他分支推送不觸發，以及同一 PR 取消過時執行的規則，尚未有實際分支或 PR 驗證，保留待後續驗收。細節與日誌掃描見 [安全測試紀錄](SECURITY_TESTING.md)。
+
 ## 測試修復提交：遠端驗收完成
 
 `538d14a9d27b1593f2ae80101e8a7cd51e6d5ce1` 的 [完整 CI](https://github.com/kejamestw/skillpane/actions/runs/41014722654) 於 2026-10-30 14:32:58 至 14:35:32（台灣時間，UTC+8）首次執行八項成功。Windows Python 3.11／3.13 各 160 項（159 通過、1 平台略過），Linux 兩組各 160 項（148 通過、12 平台略過），Chromium／Firefox 共 24 項通過。分流十項與文件測試兩項、secrets、Gitleaks checksum 與最終 validation 成功；八份日誌另在記憶體機密掃描通過，零 artifacts、repo 私人。
