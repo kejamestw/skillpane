@@ -10,6 +10,9 @@ from dataclasses import dataclass, field
 import json
 import re
 
+# JSON escapes can produce lone UTF-16 surrogates that UTF-8 cannot store.
+SURROGATE = re.compile('[\ud800-\udfff]')
+
 
 def without_comment(line: str) -> str:
     quote, escaped, index = None, False, 0
@@ -45,6 +48,8 @@ def scalar(value):
         parsed = json.loads(value)
         if not isinstance(parsed, str):
             raise ValueError('不是字串')
+        if SURROGATE.search(parsed):
+            raise ValueError('包含無法儲存的 Unicode 代理字元')
         return parsed
     if value.startswith("'"):
         if len(value) < 2 or not value.endswith("'"):

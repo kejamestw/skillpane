@@ -23,6 +23,14 @@ class MetadataTests(unittest.TestCase):
         self.assertEqual(document.values[('description',)], "Apple's motion design")
         self.assertEqual(document.values[('other',)], "it's # quoted")
 
+    def test_lone_surrogate_escape_is_unreadable_but_pairs_are_kept(self):
+        document = parse_mapping('name: "bad\\ud800"\nlow: "\\udc80"\nemoji: "\\ud83d\\ude00"\n')
+        for key in ('name', 'low'):
+            with self.subTest(key=key):
+                self.assertIsNone(document.values[(key,)])
+                self.assertIn('代理字元', document.error_for((key,)))
+        self.assertEqual(document.values[('emoji',)], '\U0001F600')
+
     def test_invalid_or_ambiguous_values_remain_unknown(self):
         for value in ['"false"', "'true'", 'null', '0', 'yes', '[]', '{}', '"unclosed', '&flag false', '!bool false']:
             with self.subTest(value=value):

@@ -129,6 +129,22 @@ class CatalogTests(unittest.TestCase):
         self.assertFalse(snapshot['scan_scope']['project_skills_scanned'])
         self.assertFalse(snapshot['scan_scope']['activation_verified'])
 
+    def test_lone_surrogate_metadata_falls_back_and_can_be_stored(self):
+        from skillpane.library import Library
+        skill(self.home, '.agents/skills/good', 'good')
+        state = self.home.parent / 'state'
+        library = Library(Catalog(self.home), Annotations(state))
+        bad = self.home / '.agents/skills/bad-name/SKILL.md'
+        bad.parent.mkdir()
+        bad.write_text('---\nname: "\\ud800"\ndescription: "\\udc80"\n---\nSynthetic\n', encoding='utf-8')
+        snapshot = library.rescan()
+        record = next(s for s in snapshot['skills'] if s['name'] == 'bad-name')
+        self.assertEqual(record['description'], '')
+        self.assertTrue(any('代理字元' in warning for warning in record['warnings']))
+        json.dumps(snapshot, ensure_ascii=False).encode('utf-8')
+        restarted = Library(Catalog(self.home), Annotations(state)).snapshot()
+        self.assertEqual(sorted(s['name'] for s in restarted['skills']), ['bad-name', 'good'])
+
     def test_unknown_id_cannot_read_arbitrary_file(self):
         catalog = Catalog(self.home)
         with self.assertRaises(KeyError):
