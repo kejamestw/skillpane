@@ -81,6 +81,33 @@ test('long list is one Tab stop and arrow keys move the selection',async({page},
   }
 });
 
+test.describe('200% zoom layout equivalent',()=>{
+  // A 1280×720 window at 200% browser zoom lays out like a 640×360 CSS px viewport at DPR 2.
+  // This checks layout reachability only; native browser zoom still needs a manual check.
+  test.use({viewport:{width:640,height:360},deviceScaleFactor:2});
+  test('controls stay reachable without horizontal scrolling',async({page},info)=>{
+    test.skip(!info.project.name.endsWith('-desktop'),'Desktop window equivalence');
+    const noOverflow=()=>page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1);
+    expect(await noOverflow()).toBe(true);
+    await page.locator('#searchInput').fill('fixture-149');
+    await expect(page.locator('.skill-row')).toHaveCount(1);
+    await expect(page.locator('#detailPane h2')).toHaveText('fixture-149');
+    for(const selector of ['#favoriteButton','#statusSelect','#noteInput','#saveNoteButton']){
+      await page.locator(selector).scrollIntoViewIfNeeded();
+      await expect(page.locator(selector)).toBeInViewport();
+    }
+    await page.locator('#quickSettingsButton').click();
+    await expect(page.locator('#closeSettings')).toBeInViewport();
+    await page.locator('#textSizeSelect').scrollIntoViewIfNeeded();
+    await expect(page.locator('#textSizeSelect')).toBeInViewport();
+    await page.locator('#closeSettings').click();
+    await page.locator('#dataButton').click();
+    await expect(page.locator('#downloadBackup')).toBeInViewport();
+    await page.keyboard.press('Escape');
+    expect(await noOverflow()).toBe(true);
+  });
+});
+
 test('real input, scrolling, and persisted reading preferences',async({page},info)=>{
   await page.locator('#searchInput').fill('fixture-149');
   await expect(page.locator('.skill-row')).toHaveCount(1);

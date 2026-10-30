@@ -15,5 +15,7 @@ module.exports=defineConfig({
     {name:'chromium-compact',use:{browserName:'chromium',viewport:{width:1024,height:480}}},
     {name:'chromium-mobile',use:{browserName:'chromium',viewport:{width:390,height:844},isMobile:true,hasTouch:true}},
     {name:'firefox-desktop',use:{browserName:'firefox',viewport:{width:1280,height:720}}},
+    // Playwright WebKit covers the engine only; it is not a Safari or iOS sign-off.
+    {name:'webkit-desktop',use:{browserName:'webkit',viewport:{width:1280,height:720}}},
   ],
 });

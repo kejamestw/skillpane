@@ -68,11 +68,11 @@ Windows CI 的整個測試工作上限為 25 分鐘，Linux 維持 10 分鐘；�
 
 ```sh
 npm ci --ignore-scripts --no-fund --no-audit
-npx --no-install playwright install chromium firefox
+npx --no-install playwright install chromium firefox webkit
 npm run test:browser
 ```
 
-Linux runner 使用 `npx --no-install playwright install --with-deps chromium firefox` 安裝必要系統函式庫。Playwright 與遞迴套件版本、registry URL 與 integrity 均鎖定於 package-lock.json；不執行 npm lifecycle scripts。下載瀏覽器仍依賴 Playwright 官方發行管道與 HTTPS。
+Linux runner 使用 `npx --no-install playwright install --with-deps chromium firefox webkit` 安裝必要系統函式庫。Playwright 與遞迴套件版本、registry URL 與 integrity 均鎖定於 package-lock.json；不執行 npm lifecycle scripts。下載瀏覽器仍依賴 Playwright 官方發行管道與 HTTPS。
 
 可用 `SKILLPANE_TEST_PYTHON` 指定 Python 執行檔。公司代理環境若 Node 不信任已安裝的公司憑證，Node 24 可透過程序層級 `NODE_OPTIONS=--use-system-ca` 使用系統信任庫；不要關閉 TLS 驗證。`PLAYWRIGHT_BROWSERS_PATH` 可指向本機快取；安裝與測試時必須使用同一設定。
 
@@ -86,8 +86,9 @@ npm run test:browser -- --project=chromium-desktop
 | chromium-compact | 1024×480 |
 | chromium-mobile | 390×844，觸控與行動裝置模擬 |
 | firefox-desktop | 1280×720 |
+| webkit-desktop | 1280×720，Playwright WebKit 引擎；不等於 Safari 或 iOS 實機 |
 
-每組執行六個案例：核心、管理、XSS 文字顯示、提示詞回歸、使用 Playwright 真實輸入／點擊／滾輪操作，以及掃描變更紀錄，共 24 個。四個既有腳本保留合成服務標記檢查；額外案例檢查搜尋、筆記草稿、儲存、側欄與字級偏好重載、清單及詳情捲動與水平溢出。
+每組執行八個共用案例：核心、管理、XSS 文字顯示、提示詞回歸、使用 Playwright 真實輸入／點擊／滾輪操作、輸入法組字搜尋、長清單鍵盤焦點（單一 Tab 停點與方向鍵），以及掃描變更紀錄。三個桌面設定另執行 200% 縮放等效版面（640×360 CSS px、DPR 2），確認主要控制可到達且無水平捲動；這是版面等效檢查，不取代瀏覽器原生縮放。五組共 45 個案例，兩個非桌面設定略過 200% 案例，實際執行 43 個。以下說明保留原有的六個基礎案例。四個既有腳本保留合成服務標記檢查；額外案例檢查搜尋、筆記草稿、儲存、側欄與字級偏好重載、清單及詳情捲動與水平溢出。
 
 每個案例建立全新的合成服務、browser context 與動態 port；不重用既有服務、不接受外部 base URL。瀏覽器封鎖服務以外的網路請求，提示詞腳本攔截複製操作，不碰 OS 剪貼簿；未捕捉的 JavaScript 錯誤使測試失敗。預期的衝突或錯誤輸入 HTTP 回應由個別腳本驗證。服務子程序在測試結束時停止。失敗時不自動重試，以免掩蓋不穩定案例。
 

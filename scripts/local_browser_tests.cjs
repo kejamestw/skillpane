@@ -26,7 +26,7 @@ if(action==='install' && options.includes('--system-ca')){
   }
   env.NODE_OPTIONS=[env.NODE_OPTIONS,'--use-system-ca'].filter(Boolean).join(' ');
 }
-const args=action==='install'?['install','chromium','firefox']:['test',...options];
+const args=action==='install'?['install','chromium','firefox','webkit']:['test',...options];
 console.log('Using project-local .runtime/playwright-browsers; no global browser settings are changed.');
 const result=spawnSync(process.execPath,[cli,...args],{cwd:root,env,stdio:'inherit',windowsHide:true,shell:false});
 if(result.error){console.error('Could not start the local browser tool.');process.exit(1);}

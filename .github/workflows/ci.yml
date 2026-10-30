@@ -90,7 +90,7 @@ jobs:
       - name: Install locked development dependencies
         run: npm ci --ignore-scripts --no-fund --no-audit
       - name: Install test browsers
-        run: npx --no-install playwright install --with-deps chromium firefox
+        run: npx --no-install playwright install --with-deps chromium firefox webkit
       - name: Synthetic browser regressions
         run: npm run test:browser
       # No screenshot, trace, video or fixture artifacts are uploaded.
