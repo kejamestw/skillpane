@@ -102,13 +102,31 @@ python -B -m unittest discover -s tests -p test_launcher.py -v
 
 單次摘要包含 Start／Stop、PowerShell 類型、結果、整體毫秒數、最後階段、尚未結束的最內層階段，以及已完成階段耗時。可區分排他鎖、紀錄讀寫、程序及 CIM 身分查詢、監聽查詢、Python 啟動、健康回應與停止等待。整體時間包含 PowerShell 啟動／退出，階段鐘從載入共用腳本開始；兩者差距不能直接當成純 PowerShell 啟動耗時。`no-marker` 只表示沒有可辨識階段，不能據此判定根因。
 
+父程序另以單調時鐘觀察下列欄位，皆為同一輪測試起點之後的毫秒數；`script_elapsed_ms` 使用子程序自己的階段鐘，兩種時鐘不能當作相同起點直接相減。
+
+| 欄位 | 意義 |
+| --- | --- |
+| `spawn_ms` | 呼叫 Popen 前至建立呼叫返回，包含可觀察的 OS 程序建立等待 |
+| `first_stage_seen_ms` | 父程序首次讀到允許清單內標記的時間上界 |
+| `exit_stage_seen_ms` | 父程序首次讀到 launcher-exit 標記的時間上界 |
+| `process_end_ms` | 父程序觀察到正常結束／非零退出的時間；超時或尚未觀察到則為 -1 |
+| `script_elapsed_ms` | 最後有效標記的子程序時鐘值；未必代表完整腳本已結束 |
+
+每 100 ms 輪詢受限的 stderr 尾端與自有程序，排程及檔案 I/O 仍可能增加取樣延遲。很短的腳本可能在同一次取樣才看到首尾標記；`-1` 表示未知，不能當作零，也不能把觀測時間直接當成標記實際寫入時間。`process_end_ms - exit_stage_seen_ms` 只反映已觀測到的退出等待；若兩者同次取得，無法排除較短的實際等待。
+
+原有診斷開關案例亦輸出 `action=Probe`：在同一隔離副本只載入共用腳本、測試固定標記及開關，不啟動 Skillpane、查詢技能或呼叫 HTTP。兩種 PowerShell 各有未設定、關閉與開啟三種探針，開關關閉時標記時間應保持未知。它可作為命令前後等待的觀測對照，不是不同版本的正式效能基準。
+
+測試從呼叫 Popen 前開始計算同一份 60 秒預算，建立呼叫返回後只等待剩餘時間，不另外重新給 60 秒；若建立已耗盡預算，即使程序已結束也判逾時。測試沒有另設可中斷 OS 建立呼叫的監督程序，因此該呼叫若阻塞，須等它返回才能處理；不宣稱硬性牆鐘上限。逾時只終止本次 Popen 持有的程序，清理最多再等 10 秒，清理失敗維持失敗。不依紀錄檔或輸出取得 PID 來終止其他程序，亦不自動重試。
+
 摘要只接受固定標籤及 ASCII 毫秒數，讀取 stderr 尾端最多 16 KiB、保留最多 128 個事件；忽略原始文字、未知標籤與倒退的時間。超時仍印出已完成及未完成階段，維持測試失敗，不把 TimeoutExpired 的完整命令或輸出帶入錯誤訊息。原始 stdout／stderr 留在 Git 忽略的合成 fixture，CI 不上傳；檢查失敗也只印安全摘要。
+
+觀測欄位拒絕未知 key、字串、布林及小於 -1 的值；建立與清理錯誤採固定的 spawn-error／cleanup-error 摘要，原始例外鏈不附在失敗訊息。測試涵蓋模擬時鐘、仍存活及已結束的慢速建立、超時後自有程序清理，以及實際的合成 Python 子程序。
 
 診斷預設關閉與標籤拒絕在 Windows PowerShell 5.1／7 驗證。查詢契約另測成功空結果、提供者錯誤向外傳遞，以及非法／可疑 port 在查詢前拒絕；真實占用、偽裝健康回應、紀錄竄改、不同 checkout 與持鎖案例仍須全部執行。
 
 監聽查詢改用 `Get-CimInstance` 的 provider filter，仍讀相同 `root/StandardCimv2` 的 `MSFT_NetTCPConnection`，保留 `State = 2`（Listen）、port 與後續 loopback／socket 擁有者檢查；查詢失敗不能視為 port 可用。依據：[Microsoft Get-CimInstance 的 Filter](https://learn.microsoft.com/en-us/powershell/module/cimcmdlets/get-ciminstance?view=powershell-5.1#-filter)、[Get-NetTCPConnection](https://learn.microsoft.com/en-us/powershell/module/nettcpip/get-nettcpconnection)。Listen 數值另核對 Windows 內建 `NetTCPIP/MSFT_NetTCPConnection.cdxml`。
 
-首次 GitHub 超時發生在雲端 Windows runner 的初始 `self.start()`，不是使用者電腦，也尚未進入持鎖競爭。同一舊提交第二次成功，只能確認未必每次重現。新診斷與本機查詢改善尚須以本批自己的遠端提交驗收，不能把本機較快視為雲端超時已修復。
+首次 GitHub 超時發生在雲端 Windows runner 的初始 `self.start()`，不是使用者電腦，也尚未進入持鎖競爭。同一舊提交第二次成功，只能確認未必每次重現。階段診斷與查詢改善已由 `95b7f6d` 的遠端 CI 驗收；後續父程序觀測仍須核對自己的新 SHA，不能把本機較快或先前遠端成功視為雲端超時根因已修復，見 [CI 紀錄](CI.md#後續啟動器診斷)。
 
 維護新版本時先跑受影響案例，再執行必要完整回歸；本機驗證不取代遠端矩陣。發布前仍須檢查候選檔案、Git 歷史與公開邊界，這些測試不是零漏洞證明或獨立安全審查。
 

@@ -264,19 +264,21 @@ class LauncherTests(unittest.TestCase):
                         env.pop('SKILLPANE_LAUNCHER_DIAGNOSTICS', None)
                     else:
                         env['SKILLPANE_LAUNCHER_DIAGNOSTICS'] = '1' if enabled else '0'
-                    result = subprocess.run([shell, '-NoProfile', '-File', str(script),
-                        str(self.bundle / 'scripts/Launcher.ps1')], env=env, capture_output=True,
-                        creationflags=subprocess.CREATE_NO_WINDOW, timeout=60)
-                    self.assertEqual(result.returncode, 0)
-                    self.assertEqual(result.stdout, b'')
-                    self.assertNotIn(b'private-payload', result.stderr)
-                    target = self.base / 'diagnostic-labels.stderr.txt'
-                    target.write_bytes(result.stderr)
+                    self.commands += 1
+                    target = self.base / f'probe-{self.commands}.stderr.txt'
+                    result = invoke_with_diagnostics([shell, '-NoProfile', '-File', str(script),
+                        str(self.bundle / 'scripts/Launcher.ps1')], cwd=self.bundle, env=env,
+                        out=self.base / f'probe-{self.commands}.stdout.txt', err=target,
+                        action='Probe', shell='PowerShell7' if shell == PWSH else 'WindowsPowerShell',
+                        creationflags=subprocess.CREATE_NO_WINDOW)
+                    self.assertEqual(result.returncode, 0, result.diagnostics)
+                    self.assertEqual(result.stdout, '')
+                    self.assertNotIn('private-payload', result.stderr)
                     events = read_events(target)
                     self.assertEqual([stage for stage, _ in events],
                         ['start-enter', 'launcher-exit'] if enabled else [])
                     if not enabled:
-                        self.assertEqual(result.stderr, b'')
+                        self.assertEqual(result.stderr, '')
 
     def test_listener_query_errors_are_not_treated_as_an_empty_port(self):
         script = self.base / 'listener-query-contract.ps1'

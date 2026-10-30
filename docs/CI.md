@@ -61,3 +61,9 @@ actionlint -shellcheck= -pyflakes= .github/workflows/ci.yml
 ## 後續啟動器診斷
 
 Windows 啟停測試會印出允許清單內的階段耗時，說明與安全限制見 [測試指南](TESTING.md#windows-啟動超時診斷)。固定上限、真實安全負向案例與不自動重試的規則維持不變；這類程式／測試變更屬完整流程，新增數量須以該版本實際執行結果為準。
+
+`95b7f6df531ad14438084d2fa331f1e787343339` 的 [完整 CI](https://github.com/kejamestw/skillpane/actions/runs/40901150133) 於 2026-10-29 23:23:59 至 23:44:18（台灣時間，UTC+8）首次執行八項成功。四組 Python 各 144 項，Windows 各 143 通過／1 略過、Linux 各 133 通過／11 略過；browser 24 項通過。兩組 Windows 各 48 次啟停無超時，八份日誌在記憶體掃描通過，repo 私人、零 artifacts。
+
+該提交 Windows PowerShell 5.1 的成功 Start 中位約 20.6／25.4 秒（各七筆），PowerShell 7 各一筆約 1.4／1.7 秒；健康回應等待約半秒。當時只有階段耗時，無法區分建立呼叫、首次進入腳本及退出等待，因此不將差距直接當作特定版本或防毒程式的根因。
+
+後續新增的 spawn_ms、first_stage_seen_ms、exit_stage_seen_ms、process_end_ms、script_elapsed_ms 與六次最小 Probe 觀測，仍須以它自己的提交在 GitHub 驗收；不能沿用 95b7f6d 的成功結論。未知值為 -1，輪詢觀測有取樣誤差；Probe 不啟動應用程式，亦不代表真實啟動案例的等量工作負載。每次新提交應核對實際測試數量、48 次真實啟停與六次 Probe，另保留 24 項 browser、secrets 及最終 validation。
