@@ -343,7 +343,10 @@ document.addEventListener('click', async event=>{
     if(target.isConnected)target.disabled=false;
   }
 });
-$('#searchInput').addEventListener('input',event=>{state.query=event.target.value.trim().toLowerCase();updateResults({resetScroll:true});});
+// IME composition text (e.g. Zhuyin symbols) is not a query yet; compositionend applies the result.
+function applySearch(value){const query=value.trim().toLowerCase();if(query===state.query)return;state.query=query;updateResults({resetScroll:true});}
+$('#searchInput').addEventListener('input',event=>{if(!event.isComposing)applySearch(event.target.value);});
+$('#searchInput').addEventListener('compositionend',event=>applySearch(event.target.value));
 $('#sortButton').addEventListener('click',()=>{state.sort=state.sort==='name'?'modified':'name';$('#sortButton').innerHTML=icon('sort')+`<span>${state.sort==='name'?'名稱':'修改時間'}</span>`;updateResults({resetScroll:true});});
 $('#detailPane').addEventListener('input',event=>{if(event.target.id==='noteInput'){const saved=state.data.annotations[state.selected]?.note || '';if(event.target.value===saved)state.drafts.delete(state.selected);else state.drafts.set(state.selected,event.target.value);$('#noteState').textContent=state.drafts.has(state.selected)?'有尚未儲存的筆記':'只儲存在這台電腦，不修改技能內容';}});
 $('#detailPane').addEventListener('change',async event=>{

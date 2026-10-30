@@ -47,7 +47,8 @@ export function initializeChanges(ctx){
   $('#changesButton').addEventListener('click',()=>{if(!context.state.data)return;$('#changesDialog').showModal();renderChanges();});
   $('#closeChanges').addEventListener('click',()=>$('#changesDialog').close());
   $('#changeKind').addEventListener('change',renderChanges);
-  $('#changeSearch').addEventListener('input',renderChanges);
+  $('#changeSearch').addEventListener('input',event=>{if(!event.isComposing)renderChanges();});
+  $('#changeSearch').addEventListener('compositionend',renderChanges);
   $('#scanChanges').addEventListener('click',async event=>{const button=event.currentTarget;button.disabled=true;try{await context.refresh();}finally{button.disabled=false;renderChanges();}});
   $('#changesList').addEventListener('click',event=>{const button=event.target.closest('[data-change-skill]');if(!button)return;$('#changesDialog').close();context.openSkill(button.dataset.changeSkill);});
 }

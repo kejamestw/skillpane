@@ -17,6 +17,24 @@ for(const [file,entry,minChecks] of [
   });
 }
 
+test('IME composition text filters only after composition ends',async({page})=>{
+  const rows=page.locator('.skill-row'),count=page.locator('#listCount');
+  await expect(rows.first()).toBeVisible();
+  const before=await count.textContent();
+  await page.locator('#searchInput').evaluate(input=>{
+    input.dispatchEvent(new CompositionEvent('compositionstart',{bubbles:true}));
+    input.value='ㄈ';
+    input.dispatchEvent(new InputEvent('input',{bubbles:true,isComposing:true,data:'ㄈ'}));
+  });
+  expect(await count.textContent()).toBe(before);
+  await page.locator('#searchInput').evaluate(input=>{
+    input.value='fixture-149';
+    input.dispatchEvent(new CompositionEvent('compositionend',{bubbles:true,data:'fixture-149'}));
+  });
+  await expect(rows).toHaveCount(1);
+  await expect(page.locator('#detailPane h2')).toHaveText('fixture-149');
+});
+
 test('real input, scrolling, and persisted reading preferences',async({page},info)=>{
   await page.locator('#searchInput').fill('fixture-149');
   await expect(page.locator('.skill-row')).toHaveCount(1);
