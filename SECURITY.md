@@ -15,7 +15,7 @@ Skillpane 是早期的本機個人工具。目前只對最新 0.4 修訂版提�
 ## 現有防護與限制
 
 - 固定 loopback、Host／Origin／Fetch Metadata 檢查；寫入需同源 JSON 與自訂 header，不開放 CORS。
-- 靜態資源使用允許清單；技能內容以掃描識別取得，讀取與 Git 來源查詢前重新檢查 canonical path 與大小，沒有任意檔案路徑 API。掃描的排除規則也套用到連結解析後的位置；超長識別會略過並計數。
+- 靜態資源使用允許清單；技能內容以掃描識別取得，讀取與 Git 來源查詢前重新檢查 canonical path 與大小，沒有任意檔案路徑 API。Git 來源查詢只在技能所屬的掃描根目錄內尋找 repository，不採用 bare repository 版面，並停用 fsmonitor、pager、外部 diff、textconv 與延遲下載；仍會讀取該範圍內 repository 自己的設定。掃描的排除規則也套用到連結解析後的位置；超長識別會略過並計數。
 - 不執行技能腳本，不把原文當 HTML。動態文字經 escaping／textContent；CSP 禁止 inline script 與外部 script、frame、object。
 - HTTP body、整理資料、匯入筆數及欄位有上限；拒絕歧義 JSON、非有限數值與不支援的分塊寫入。
 - 常用提示詞只保存與複製文字；每個技能最多 20 筆，名稱及內容分別最多 80／4,000 字。儲存時比對編輯前的提示詞，衝突回傳 409 並保留草稿。提示詞及其他個人文字可能含機密，會隨整理資料備份匯出。

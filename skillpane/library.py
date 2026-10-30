@@ -9,6 +9,7 @@ import shutil
 import subprocess
 from uuid import uuid4
 
+from .catalog import roots
 from .storage import clone, file_digest, now, pair_key, validate_comparison
 from .changes import ScanHistory
 
@@ -179,12 +180,18 @@ class Library:
                 return clone(self.git_cache[key])
         result = {'state': 'unknown', 'first_added_at': None, 'commit': None}
         executable = shutil.which('git')
+        # Search no higher than the scan root, e.g. a home-directory dotfiles repo.
+        boundaries = [root.resolve() for root in roots(self.catalog.home)]
+        boundary = max((root for root in boundaries if path.is_relative_to(root)), key=lambda root: len(root.parts))
         if executable:
             environment = {k: v for k, v in os.environ.items() if not k.startswith('GIT_')}
             environment.update(GIT_NO_LAZY_FETCH='1', GIT_TERMINAL_PROMPT='0',
-                               GIT_CONFIG_NOSYSTEM='1', GIT_CONFIG_GLOBAL=os.devnull)
+                               GIT_CONFIG_NOSYSTEM='1', GIT_CONFIG_GLOBAL=os.devnull,
+                               GIT_CEILING_DIRECTORIES=str(boundary.parent))
             try:
+                # A skill folder laid out as a bare repository must not supply config.
                 process = subprocess.run([executable, '--no-pager', '-c', 'core.fsmonitor=false', '-c', 'log.showSignature=false',
+                                          '-c', 'safe.bareRepository=explicit',
                                           '-C', str(path.parent), 'log', '--no-ext-diff', '--no-textconv', '--follow',
                                           '--diff-filter=A', '--format=%aI%x09%H', '--', 'SKILL.md'],
                                          capture_output=True, timeout=3, env=environment, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))

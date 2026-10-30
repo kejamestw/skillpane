@@ -1,7 +1,9 @@
 from copy import deepcopy
 from hashlib import sha256
 import json
+import os
 from pathlib import Path
+import shutil
 import unittest
 from unittest.mock import patch
 import subprocess
@@ -247,8 +249,43 @@ class LibraryTests(unittest.TestCase):
             self.assertEqual(evidence['state'], 'known')
             self.assertEqual(evidence['first_added_at'], '2026-09-30T01:43:00+00:00')
             self.assertIn('core.fsmonitor=false', run.call_args.args[0])
+            self.assertIn('safe.bareRepository=explicit', run.call_args.args[0])
             self.assertIn('--no-ext-diff', run.call_args.args[0])
             self.assertIn('log', run.call_args.args[0])
+            self.assertEqual(run.call_args.kwargs['env']['GIT_CEILING_DIRECTORIES'], str(self.home.resolve() / '.agents'))
+
+    def test_git_evidence_ignores_repositories_above_scan_root_and_bare_layouts(self):
+        git = shutil.which('git')
+        if not git:
+            self.skipTest('Git integration test')
+        environment = {k: v for k, v in os.environ.items() if not k.startswith('GIT_')}
+        environment.update(GIT_CONFIG_NOSYSTEM='1', GIT_CONFIG_GLOBAL=os.devnull)
+        def run(cwd, *args):
+            subprocess.run([git, '-c', 'user.name=Synthetic', '-c', 'user.email=synthetic@example.invalid',
+                            '-c', 'commit.gpgsign=false', '-c', 'core.hooksPath=', *args],
+                           cwd=cwd, env=environment, check=True, capture_output=True)
+        def commit_all(directory):
+            run(directory, 'init', '-q')
+            run(directory, 'add', '-A')
+            run(directory, 'commit', '-q', '-m', 'Synthetic history')
+        commit_all(self.home)
+        self.assertEqual(self.library.provenance(self.ids['first'])['state'], 'unknown')
+        commit_all(self.home / '.agents/skills')
+        self.library.git_cache.clear()
+        self.assertEqual(self.library.provenance(self.ids['first'])['state'], 'known')
+
+        base = fixture_root()
+        source = base / 'source'
+        source.mkdir()
+        (source / 'SKILL.md').write_text('---\nname: bare\ndescription: Synthetic\n---\n', encoding='utf-8')
+        commit_all(source)
+        target = base / 'home/.agents/skills/bare'
+        target.parent.mkdir(parents=True)
+        run(base, 'clone', '-q', '--bare', str(source), str(target))
+        (target / 'SKILL.md').write_bytes((source / 'SKILL.md').read_bytes())
+        library = Library(Catalog(base / 'home'), Annotations(base / 'state'))
+        bare = next(s['id'] for s in library.snapshot()['skills'] if s['name'] == 'bare')
+        self.assertEqual(library.provenance(bare)['state'], 'unknown')
 
     def test_long_comparison_reports_truncation(self):
         self.path.write_text(self.path.read_text(encoding='utf-8') + '\n' + 'Synthetic line\n'*2000, encoding='utf-8')

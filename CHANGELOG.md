@@ -2,6 +2,7 @@
 
 ## 0.4.0 — Unreleased
 
+- Git 來源查詢以 `GIT_CEILING_DIRECTORIES` 限制在技能所屬的掃描根目錄內，不再往上採用家目錄等較高層的 repository；並以 `safe.bareRepository=explicit` 拒絕把技能資料夾當作 bare repository 讀取其設定。新增真實 Git 的負向回歸，涵蓋外層 repo、掃描根 repo 與 bare 版面。
 - HTTP 處理器遇到未預期例外時，改回傳通用 JSON 500 錯誤並保留安全標頭，不再直接中斷連線；本機 stderr 只記錄例外類型，不寫入訊息、路徑或技能內容。新增 GET／POST／PATCH 的負向測試，並確認服務之後仍可回應。
 - 修正 SKILL.md 前置資料以 JSON 跳脫寫出孤立 Unicode 代理字元（例如 `"\ud800"`）時，重新掃描回傳 400、狀態 API 中斷連線，重啟後服務也無法啟動。此類欄位改列為無法判讀，名稱退回資料夾名稱並顯示警告；成對的代理字元仍正常解讀。新增解析與掃描、儲存、重啟的回歸。
 - 新增可選的開發用本機瀏覽器安裝／測試入口，固定使用專案 `.runtime/` 快取，避開本機共用 Playwright Firefox 路徑的啟動失敗；不變更 CI、正式程式或全域設定。本機 Chromium／Firefox 24 項通過，並補記工具輔助的字級、側欄與捲動驗收，以及尚未實測的原生縮放和實體裝置範圍。
