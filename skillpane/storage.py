@@ -9,6 +9,7 @@ from pathlib import Path
 import re
 import shutil
 import threading
+import time
 from urllib.parse import parse_qs, urlsplit
 from uuid import uuid4
 
@@ -18,6 +19,8 @@ DECISIONS = {'keep-both', 'consider-merge', 'checked'}
 TEXT_LIMITS = {'note': 4000, 'alias': 100, 'summary': 600, 'category': 40,
                'origin_reason': 1000, 'source_url': 2048, 'scope_note': 600}
 SOURCES = {'personal', 'managed', 'system', 'plugin', 'unknown'}
+WINDOWS_REPLACE = os.name == 'nt'
+REPLACE_DELAYS = (0.025, 0.05, 0.1, 0.2)
 
 
 class PromptConflict(ValueError):
@@ -56,6 +59,24 @@ def file_digest(path):
         for block in iter(lambda: stream.read(65536), b''):
             digest.update(block)
     return digest.hexdigest()
+
+
+def checked_replace(temporary, target, *, expected_digest, check):
+    """Retry only bounded Windows replacement failures, rechecking each time."""
+    for attempt in range(len(REPLACE_DELAYS) + 1):
+        check()
+        if (temporary.parent != target.parent or temporary.is_symlink()
+                or temporary.resolve() != temporary or not temporary.is_file()
+                or file_digest(temporary) != expected_digest):
+            raise ValueError('暫存資料已變更，停止儲存。')
+        try:
+            temporary.replace(target)
+            return
+        except OSError as error:
+            if (not WINDOWS_REPLACE or getattr(error, 'winerror', None) not in {5, 32, 33}
+                    or attempt == len(REPLACE_DELAYS)):
+                raise
+        time.sleep(REPLACE_DELAYS[attempt])
 
 
 def valid_id(value):
@@ -260,9 +281,10 @@ class Annotations:
             with os.fdopen(descriptor, 'w', encoding='utf-8', newline='\n') as stream:
                 stream.write(content)
                 stream.flush()
-            temporary.replace(self.path)
+            digest = sha256(content.encode('utf-8')).hexdigest()
+            checked_replace(temporary, self.path, expected_digest=digest, check=self.ensure_unchanged)
             self.state = next_state
-            self.disk_digest = sha256(content.encode('utf-8')).hexdigest()
+            self.disk_digest = digest
             self.error, self.legacy = None, False
 
     def ensure_unchanged(self):

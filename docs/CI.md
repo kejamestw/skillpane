@@ -97,3 +97,11 @@ Windows 啟停測試會印出允許清單內的階段耗時，說明與安全限
 兩組 Windows 原有 48 次正式啟停及六次 Probe 均完成，沒有 timeout／spawn-error／cleanup-error；3.11 的成功 Start 中位數約 1.56 秒、record-read 約 41 ms，支持正式載入修正有效，但不抵銷新增負向案例失敗。同 SHA 的 [手動診斷](https://github.com/kejamestw/skillpane/actions/runs/41012087671) 於 14:05:54 至 14:06:51（台灣時間，UTC+8）兩組、共 14 筆成功。完整八份及手動兩份日誌在記憶體機密掃描通過，兩個 run 零 artifacts、repo 私人。
 
 後續只修復測試：將不存在函式的 Get-Command 查詢換為 Function provider 直接檢查，並新增固定階段與逾時防洩漏摘要。缺失命令查詢是待排除的搜尋路徑，首次超時缺少逐步標記，尚未確認實際停在哪一行；新版本補標記以便辨識。保留 60 秒與全部負向案例，不以放寬時間或重跑原提交處理。新增跨平台防洩漏測試後預期 160 項，仍須以新 SHA 驗收完整八項 CI；正式啟停程式不因這批測試修正調整。
+
+## 測試修復提交：遠端驗收完成
+
+`538d14a9d27b1593f2ae80101e8a7cd51e6d5ce1` 的 [完整 CI](https://github.com/kejamestw/skillpane/actions/runs/41014722654) 於 2026-10-30 14:32:58 至 14:35:32（台灣時間，UTC+8）首次執行八項成功。Windows Python 3.11／3.13 各 160 項（159 通過、1 平台略過），Linux 兩組各 160 項（148 通過、12 平台略過），Chromium／Firefox 共 24 項通過。分流十項與文件測試兩項、secrets、Gitleaks checksum 與最終 validation 成功；八份日誌另在記憶體機密掃描通過，零 artifacts、repo 私人。
+
+兩組 Windows 各 48 次啟停及六次 Probe 均無 timeout／spawn-error／cleanup-error。Windows PowerShell 成功 Start 中位數為 1.390／1.617 秒，Stop 為 0.523／0.640 秒；record-read 為 36／43 ms。對照前一正式版本 652ae38 的 Start 約 20／25 秒、record-read 約 18.7／23.5 秒，支持必要模組明確載入的改善。完整 CI 約 154 秒，舊版約 1098 秒；不同 runner、單次執行與排程差異仍存在，不宣稱固定加速倍數或舊超時全部已解釋。
+
+手動兩組診斷的成功結果屬於 47f7c70，連結及時間見前節；538d14a 只修測試與文件，正式啟停與手動工具來源已用 Git 差異核對相同。沒有宣稱另對 538d14a 執行手動診斷。兩次完整本機的既有寫入案例失敗仍保留於 [安全測試紀錄](SECURITY_TESTING.md)，遠端成功不代表該本機問題已修復。

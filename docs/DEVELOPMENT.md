@@ -20,6 +20,8 @@
 
 一個 checkout 同時只執行一個服務。儲存採程序內 lock、外部變更指紋檢查、原子替換與備份；不提供跨程序鎖或共享資料庫的隔離保證。
 
+Windows 檔案替換若回傳 5／32／33，可在相同提交內最多嘗試五次，四次固定等待為 25／50／100／200 ms。只重試 `Path.replace`，不重做整個 HTTP 請求、備份或業務操作；每次先核對目錄與原檔指紋，並確認暫存檔非連結、在原目錄且內容指紋相符。檢查失敗、其他錯誤或重試用盡即中止；不更改權限、不先刪原檔、不回退成直接覆寫，成功後才更新記憶體。375 ms 是主動等待總量，不是包含 I/O 的牆鐘上限。這不新增跨程序鎖或消除同使用者程序的所有競態。
+
 ## 驗證
 
 完整／純文件驗證的選擇、失敗處理與遠端待驗收範圍見 [CI 驗證流程](CI.md)。純文件仍執行分流負向測試、文件連結及機密掃描。
@@ -75,7 +77,7 @@ CI 使用固定完整 commit 的官方 Actions、`contents: read` 與 `persist-c
 
 Playwright 1.64.1 是鎖定於 package-lock.json 的開發相依套件，使用 `npm ci --ignore-scripts` 安裝；瀏覽器另以本機鎖定 CLI 下載。Node 24 只供 CI 測試使用，不進應用程式執行期。Dependabot 同時追蹤 Actions 與 npm；測試不接受既有服務 URL，不上傳截圖、trace、影片或假資料。公開路徑檢查拒絕 node_modules、playwright-report 及 test-results。
 
-每次 push 後須核對確切 SHA 的四個 Python matrix、browser 與 secrets jobs，共六個；不能把「已加入 workflow」當成「遠端 CI 已通過」。
+每次 push 後須核對確切 SHA。完整流程包含 changes、四個 Python matrix、browser、secrets 與 validation，共八項；純文件流程的 tests／browser 依預期略過，其餘三項仍須成功，詳見 [CI 流程](CI.md)。不能把「已加入 workflow」當成「遠端 CI 已通過」。
 
 ## 公開前檢查
 

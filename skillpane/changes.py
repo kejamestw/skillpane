@@ -6,7 +6,7 @@ import re
 import threading
 from uuid import uuid4
 
-from .storage import clone, now, strict_json_loads, valid_id, valid_time
+from .storage import checked_replace, clone, now, strict_json_loads, valid_id, valid_time
 
 MAX_EVENTS = 300
 MAX_SKILLS = 5000
@@ -116,9 +116,9 @@ class ScanHistory:
         with os.fdopen(descriptor, 'wb') as stream:
             stream.write(raw)
             stream.flush()
-        self.ensure_unchanged()
-        temporary.replace(self.path)
-        self.state, self.disk_digest = value, sha256(raw).hexdigest()
+        digest = sha256(raw).hexdigest()
+        checked_replace(temporary, self.path, expected_digest=digest, check=self.ensure_unchanged)
+        self.state, self.disk_digest = value, digest
 
     def observe(self, skills, *, skipped=0):
         with self.lock:
