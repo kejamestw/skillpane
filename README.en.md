@@ -12,7 +12,7 @@ The tour also shows [scan history](docs/QUICK_TOUR.md#6-看最近的技能變更
 
 ## Run locally
 
-Use a currently security-supported Python release (3.11 or newer recommended). There are no third-party runtime dependencies or frontend build steps.
+Python 3.11 or newer is required; use a currently security-supported release. Older versions stop at startup with a clear message. There are no third-party runtime dependencies or frontend build steps.
 
 ```sh
 git clone https://github.com/kejamestw/skillpane.git

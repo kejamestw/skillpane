@@ -6,7 +6,7 @@
 
 | 狀況 | 處理方式 |
 | --- | --- |
-| 找不到 Python | 安裝受安全支援的 Python，確認 `python --version`；可用 `python3`／`py`，或於 Windows 啟動器設定使用者層級 `SKILLPANE_PYTHON` 為可信任的執行檔 |
+| 找不到 Python，或提示需要 3.11 以上 | 安裝受安全支援的 Python 3.11 以上版本，確認 `python --version`；可用 `python3`／`py`，或於 Windows 啟動器設定使用者層級 `SKILLPANE_PYTHON` 為可信任的執行檔 |
 | 8766 已使用 | 先確認是否已啟動 Skillpane；可手動改用 `python -m skillpane --port 8767`。Windows 0.3.3 的 Start.ps1／Stop.ps1 都支援 `-Port 8767`，但同一 checkout 已有背景服務時須先停原服務；不要任意停止未知 PID |
 | 啟停顯示 PID／身分不符或紀錄損壞 | 保留 `.runtime/server.json` 與 `.data/`，核對專案及連接埠；不要編造 PID 或覆寫時間來略過檢查。啟動器無法安全辨識時會拒絕操作 |
 | 升級後顯示 Legacy launcher record | 升級前應先用舊版啟動器停止背景服務。若已更新且舊程序仍在，請保留資料與程序紀錄再排查；新版不會自動接管或強制終止它 |

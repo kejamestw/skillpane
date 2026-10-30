@@ -14,7 +14,7 @@
 
 ## 開始使用
 
-建議使用仍在官方安全支援期內的 Python 3.11 以上版本；專案不需第三方 Python／JavaScript 執行相依套件，也不需要 Node 建置。目前是早期版本，主要介面為繁體中文，尚無語言切換。
+需要 Python 3.11 以上版本，並建議使用仍在官方安全支援期內的版本；較舊版本啟動時會直接提示並結束。專案不需第三方 Python／JavaScript 執行相依套件，也不需要 Node 建置。目前是早期版本，主要介面為繁體中文，尚無語言切換。
 
 ```sh
 git clone https://github.com/kejamestw/skillpane.git

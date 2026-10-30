@@ -126,5 +126,19 @@ class ServerTests(unittest.TestCase):
             AppServer(home=self.server.catalog.home,state_dir=self.server.catalog.home / '.agents/skills/state')
 
 
+class PythonVersionTests(unittest.TestCase):
+    def test_unsupported_python_stops_with_a_readable_message(self):
+        import importlib
+        import sys
+        import skillpane
+        try:
+            with patch.object(sys, 'version_info', (3, 10, 14, 'final', 0)):
+                with self.assertRaisesRegex(SystemExit, 'Python 3.11 or newer'):
+                    importlib.reload(skillpane)
+        finally:
+            importlib.reload(skillpane)
+        self.assertTrue(skillpane.__version__)
+
+
 if __name__ == '__main__':
     unittest.main()

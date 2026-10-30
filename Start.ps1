@@ -31,7 +31,7 @@ try {
                 if ($pythonCommand -and $pythonCommand.Source -notlike '*WindowsApps*') { $pythonPath = $pythonCommand.Source }
             }
         }
-        if (-not $pythonPath) { throw 'Python 3.10+ is required. Install Python or set SKILLPANE_PYTHON.' }
+        if (-not $pythonPath) { throw 'Python 3.11+ is required. Install Python or set SKILLPANE_PYTHON.' }
         $pythonPath = [IO.Path]::GetFullPath($pythonPath)
         if ($pythonPath -notmatch 'python(?:w)?\.exe$') { throw 'The launcher requires a Python executable.' }
         $entryPath = Join-Path $PSScriptRoot 'scripts\launcher_entry.py'
