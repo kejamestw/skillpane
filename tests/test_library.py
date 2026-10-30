@@ -219,6 +219,19 @@ class LibraryTests(unittest.TestCase):
             self.assertEqual({call.args[0].name for call in unlink.call_args_list},{item['id'] for item in preview['files']})
         self.assertNotIn(files_before[0]['id'],{item['id'] for item in preview['files']})
 
+    def test_identical_writes_skip_rewrite_and_backup_but_still_detect_external_changes(self):
+        self.store.update(self.ids['first'], {'note': 'Same note', 'favorite': True})
+        backups, content, revision = self.transfers.backups(), self.store.path.read_bytes(), self.store.state['revision']
+        self.store.update(self.ids['first'], {'note': 'Same note'})
+        self.transfers.settings({'keep_last': None})
+        self.assertEqual(self.transfers.backups(), backups)
+        self.assertEqual((self.store.path.read_bytes(), self.store.state['revision']), (content, revision))
+        self.store.update(self.ids['first'], {'favorite': False})
+        self.assertEqual(len(self.transfers.backups()), len(backups) + 1)
+        self.store.path.write_bytes(self.store.path.read_bytes() + b'\n')
+        with self.assertRaisesRegex(ValueError, '其他程序'):
+            self.store.update(self.ids['first'], {'favorite': False})
+
     def test_failed_atomic_replace_does_not_change_memory_or_current_file(self):
         state, content = clone(self.store.state), self.store.path.read_bytes()
         with patch.object(Path, 'replace', side_effect=OSError('Synthetic disk failure')):

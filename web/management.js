@@ -67,6 +67,7 @@ const markup=`
   <div class="dialog-head"><h2 id="dataTitle">資料與備份</h2><button class="icon-button" data-close="dataDialog" aria-label="關閉資料與備份">×</button></div>
   <p class="dialog-description">備份已儲存的收藏、筆記、自訂資訊與比較結論。不含技能原文與本機來源路徑；備份含個人筆記，請妥善保存。</p>
   <p id="dataError" class="notice" role="alert" hidden></p>
+  <p id="backupUsage" class="helper-text" hidden></p>
   <div class="inline-actions"><button id="downloadBackup" class="primary-button">下載整理資料備份</button><button id="chooseBackup" class="secondary-button">匯入備份…</button><input id="backupFile" type="file" accept="application/json,.json" hidden></div>
   <section id="importSection" class="transfer-section" hidden><h3>匯入預覽</h3><p id="importCounts" class="helper-text"></p><p class="helper-text">每筆選擇對應技能、保留未關聯或略過。可搜尋其他對應；略過技能的比較結論也不匯入。</p><div id="importRows" class="transfer-list"></div>
     <label class="stack-label">相同欄位的處理方式<select id="importMode"><option value="keep">保留目前欄位，只補入缺少資料</option><option value="replace">以備份內容取代所選技能的整理資料</option></select></label>
@@ -103,7 +104,11 @@ function openMetadata(id){if(!context.state.data.skills.some(s=>s.id===id))retur
 async function openData(){if(!context.state.data)return;$('#dataError').hidden=!context.state.data.storage_error;$('#dataError').textContent=context.state.data.storage_error || '';$('#downloadBackup').disabled=Boolean(context.state.data.storage_error);if(!$('#dataDialog').open)$('#dataDialog').showModal();await renderData();}
 async function renderData(){
   const data=await context.api('/api/backups');
-  $('#backupCount').textContent=`（${data.files.length} 份）`;
+  const total=data.files.reduce((sum,file)=>sum+file.size,0),size=`${(total/1024/1024).toFixed(1)} MiB`;
+  $('#backupCount').textContent=`（${data.files.length} 份，${size}）`;
+  // Retention stays manual; large totals only get a visible reminder.
+  $('#backupUsage').hidden=data.files.length<200 && total<50*1024*1024;
+  $('#backupUsage').textContent=`本機備份已有 ${data.files.length} 份、共 ${size}。可在「備份保留策略」設定保留數量並預覽清理；面板不會自動刪除。`;
   $('#backupRows').innerHTML=data.files.map(file=>`<div class="backup-row"><div><strong>${esc(context.displayedTime(file.modified_at))} · 台灣時間</strong><small>${esc(file.id)} · ${(file.size/1024).toFixed(1)} KiB</small></div><button class="secondary-button" data-restore="${esc(file.id)}">預覽還原</button></div>`).join('') || '<p class="helper-text">目前沒有較早的本機備份。</p>';
   const keep=data.settings.keep_last;
   const options=[...new Set([null,10,30,100,keep])];

@@ -274,6 +274,10 @@ class Annotations:
             if self.error and not recovery:
                 raise ValueError(self.error)
             next_state = clone(next_state)
+            # Identical content needs neither a rewrite nor another full backup.
+            if not self.error and not self.legacy and {**next_state, 'revision': self.state['revision']} == self.state:
+                self.ensure_unchanged()
+                return
             next_state['revision'] = uuid4().hex
             validate_state(next_state)
             content = json.dumps(next_state, ensure_ascii=False, indent=2)
