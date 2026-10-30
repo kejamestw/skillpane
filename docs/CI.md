@@ -89,3 +89,11 @@ Windows 啟停測試會印出允許清單內的階段耗時，說明與安全限
 正式 Start 首標記已縮短，但完整啟停尚未一致加速：Windows Python 3.11 的成功 Start 中位數約 25.1→20.0 秒，3.13 則約 25.1→25.3 秒。3.11 的 `record-read` 中位數約 18.7 秒，顯示等待移到紀錄讀取階段；不能把入口探針改善當作完整問題已修復，也未確認底層探索為何變慢。
 
 下一批改由共用腳本明確載入 `$PSHOME/Modules/` 內 Utility 與 CimCmdlets manifest，不更改 PSModulePath 或執行原則。新版本完整測試預期 159 項；手動案例仍為兩組各七筆，但 `shared-ready` 現在包含上述載入成本，最小 Probe 的工作量亦隨共用腳本增加。仍須用新 SHA 另外驗收八項完整 CI 與兩組手動診斷，不沿用 `652ae38` 的成功或將不同工作量當成嚴格效能基準。
+
+## 必要模組修正的首次執行與測試修復
+
+`47f7c701e03f2addd712d3110a610a95580a7cdd` 的 [首次完整 CI](https://github.com/kejamestw/skillpane/actions/runs/41012067273) 於 2026-10-30 14:05:41 至 14:10:19（台灣時間，UTC+8）失敗：Windows Python 3.11 新增的必要模組失敗測試有兩個 Windows PowerShell 子案例各超過 60 秒，最終 validation 正確失敗。其餘三組 Python、browser、changes、secrets 成功；不能將這次流程標為全部通過，也沒有重跑覆蓋首次結果。
+
+兩組 Windows 原有 48 次正式啟停及六次 Probe 均完成，沒有 timeout／spawn-error／cleanup-error；3.11 的成功 Start 中位數約 1.56 秒、record-read 約 41 ms，支持正式載入修正有效，但不抵銷新增負向案例失敗。同 SHA 的 [手動診斷](https://github.com/kejamestw/skillpane/actions/runs/41012087671) 於 14:05:54 至 14:06:51（台灣時間，UTC+8）兩組、共 14 筆成功。完整八份及手動兩份日誌在記憶體機密掃描通過，兩個 run 零 artifacts、repo 私人。
+
+後續只修復測試：將不存在函式的 Get-Command 查詢換為 Function provider 直接檢查，並新增固定階段與逾時防洩漏摘要。缺失命令查詢是待排除的搜尋路徑，首次超時缺少逐步標記，尚未確認實際停在哪一行；新版本補標記以便辨識。保留 60 秒與全部負向案例，不以放寬時間或重跑原提交處理。新增跨平台防洩漏測試後預期 160 項，仍須以新 SHA 驗收完整八項 CI；正式啟停程式不因這批測試修正調整。

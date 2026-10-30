@@ -11,7 +11,9 @@ import socket
 import subprocess
 import sys
 import threading
+import traceback
 import unittest
+from unittest.mock import patch
 
 from test_catalog import fixture_root, skill
 from launcher_diagnostics import invoke as invoke_with_diagnostics, read_events
@@ -28,6 +30,21 @@ def unused_port():
             port = listener.getsockname()[1]
         if port != 8766:
             return port
+
+
+def required_module_probe(command, env):
+    try:
+        return subprocess.run(command, env=env, capture_output=True,
+            creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0), timeout=60)
+    except subprocess.TimeoutExpired as error:
+        stages = (b'entered', b'module-failure-caught', b'functions-absent')
+        observed = [line.removeprefix(b'SKILLPANE_REQUIRED_MODULE stage=')
+            for line in (error.stderr or b'')[-16384:].splitlines()
+            if line.startswith(b'SKILLPANE_REQUIRED_MODULE stage=')]
+        stage = next((s.decode('ascii') for s in reversed(observed) if s in stages), 'no-marker')
+        raise AssertionError('Required module probe timed out; last=' + stage) from None
+    except OSError:
+        raise AssertionError('Required module probe could not be started.') from None
 
 
 @unittest.skipUnless(os.name == 'nt' and POWERSHELL, 'Windows PowerShell launcher tests')
@@ -284,6 +301,7 @@ class LauncherTests(unittest.TestCase):
         script = self.base / 'required-module-failure.ps1'
         script.write_text('''param([string]$Launcher,[string]$FailedModule)
 $ErrorActionPreference='Stop'
+[Console]::Error.WriteLine('SKILLPANE_REQUIRED_MODULE stage=entered')
 function Import-Module {
     param([string]$Name,[string]$ErrorAction)
     $module=[IO.Path]::GetFileNameWithoutExtension($Name)
@@ -298,9 +316,11 @@ try {. $Launcher} catch {
     $rejected=$true
 }
 if(-not $rejected) {throw 'Required module failure was accepted'}
-if(Get-Command Read-SkillpaneRecord -CommandType Function -ListImported -ErrorAction SilentlyContinue) {
+[Console]::Error.WriteLine('SKILLPANE_REQUIRED_MODULE stage=module-failure-caught')
+if($ExecutionContext.SessionState.InvokeProvider.Item.Exists('Function:\\Read-SkillpaneRecord')) {
     throw 'Launcher functions were defined despite failed initialization'
 }
+[Console]::Error.WriteLine('SKILLPANE_REQUIRED_MODULE stage=functions-absent')
 Write-Output 'verified'
 ''', encoding='utf-8')
         for shell in dict.fromkeys([POWERSHELL, PWSH]):
@@ -308,9 +328,8 @@ Write-Output 'verified'
                 continue
             for module in ('Microsoft.PowerShell.Utility', 'CimCmdlets'):
                 with self.subTest(shell='PowerShell7' if shell == PWSH else 'WindowsPowerShell', module=module):
-                    result = subprocess.run([shell, '-NoProfile', '-File', str(script),
-                        str(self.bundle / 'scripts/Launcher.ps1'), module], env=self.env,
-                        capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW, timeout=60)
+                    result = required_module_probe([shell, '-NoProfile', '-File', str(script),
+                        str(self.bundle / 'scripts/Launcher.ps1'), module], self.env)
                     self.assertEqual(result.returncode, 0, 'Required module failure did not stop initialization.')
                     self.assertEqual(result.stdout.strip(), b'verified')
                     self.assertFalse((self.bundle / '.runtime').exists())
@@ -365,6 +384,27 @@ Write-Output 'verified'
         self.owned.clear()
         with self.assertRaises((OSError, http.client.HTTPException)):
             self.request()
+
+
+class RequiredModuleProbeTests(unittest.TestCase):
+    def test_process_failures_only_expose_fixed_stage_summary(self):
+        cases = (
+            (subprocess.TimeoutExpired(['private-payload'], 60, output=b'private-payload',
+                stderr=b'private-payload\nSKILLPANE_REQUIRED_MODULE stage=module-failure-caught\n'
+                       b'SKILLPANE_REQUIRED_MODULE stage=private-payload\n'),
+             'Required module probe timed out; last=module-failure-caught'),
+            (subprocess.TimeoutExpired(['private-payload'], 60,
+                stderr=b'SKILLPANE_REQUIRED_MODULE stage=entered\n'+b'x'*16385),
+             'Required module probe timed out; last=no-marker'),
+            (OSError('private-payload'), 'Required module probe could not be started.'),
+        )
+        for error, expected in cases:
+            with self.subTest(error=type(error).__name__), patch.object(subprocess, 'run', side_effect=error):
+                with self.assertRaises(AssertionError) as caught:
+                    required_module_probe(['private-payload'], {})
+                self.assertEqual(str(caught.exception), expected)
+                self.assertTrue(caught.exception.__suppress_context__)
+                self.assertNotIn('private-payload', ''.join(traceback.format_exception(caught.exception)))
 
 
 if __name__ == '__main__':
