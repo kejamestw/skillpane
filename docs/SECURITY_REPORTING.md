@@ -11,10 +11,10 @@
 | 公開 | 2026-10-31 00:12:58（台灣時間，UTC+8），當時 main 為 `ce12e1f0b520bb1dcd8307ec31e134e9c6961385`，該提交 CI 成功 |
 | 公開前重查 | 候選 92 檔與完整歷史機密掃描、公開邊界通過；Issue／PR 各 1 筆（Dependabot PR #1 已關閉，唯一留言為其關閉訊息），release、artifacts 為零；最新 CI 日誌在記憶體掃描無發現 |
 | API 啟用 | 公開後立即啟用，`GET /repos/kejamestw/skillpane/private-vulnerability-reporting` 回應 `enabled: true` |
-| 一般回報者入口 | 尚未驗收：須以非擁有者帳號開啟 Security → Advisories → Report a vulnerability 表單 |
+| 一般回報者入口 | 已驗證：2026-10-31 00:27 前（台灣時間，UTC+8），維護者以非擁有者帳號開啟 Report a vulnerability 表單，可見安全政策提示及 Title、Summary、Details 欄位；main 為 `f8b3292c46566b415adc5ab7dd636cae7fc6f7e8`。未送出報告 |
 | 維護者收件 | 尚未驗收：送出合成測試報告須另行授權 |
 
-入口與收件驗收完成前，不宣傳回報管道或發布新版本。
+入口已驗證，但收件尚未驗證，不能寫成「收件已驗證」。收件驗收完成，或維護者明確決定以入口驗收為準之前，不宣傳回報管道或發布新版本。
 
 ## 私人期間（歷史紀錄）
 
