@@ -44,7 +44,7 @@ return
 ENTRY_PREFIX = '''param([switch]$NoBrowser, [ValidateRange(1,65535)][int]$Port = 8766)
 $ErrorActionPreference = 'Stop'
 $appUrl = "http://127.0.0.1:$Port"
-$runtimePath = Join-Path $PSScriptRoot '.runtime'
+$runtimePath = Microsoft.PowerShell.Management\\Join-Path $PSScriptRoot '.runtime'
 . (Join-Path $PSScriptRoot 'scripts\\Launcher.ps1')
 '''
 
@@ -65,8 +65,9 @@ def make_sources(entry):
         if case.startswith('minimal') or case == 'header-dotnet':
             runtime = '' if case.startswith('minimal') else "$runtimePath=[IO.Path]::Combine($PSScriptRoot,'.runtime')"
             shared = "$sharedPath=[IO.Path]::Combine($PSScriptRoot,'scripts','Launcher.ps1')"
-        if case == 'header-qualified':
+        if case in ('header-qualified', 'entry-body-parse'):
             runtime = runtime.replace('Join-Path', 'Microsoft.PowerShell.Management\\Join-Path')
+        if case == 'header-qualified':
             shared = shared.replace('Join-Path', 'Microsoft.PowerShell.Management\\Join-Path')
         if case == 'header-import':
             module = 'Import-Module Microsoft.PowerShell.Management -ErrorAction Stop'

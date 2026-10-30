@@ -1,6 +1,14 @@
 # 安全測試紀錄
 
-## 手動啟動因素診斷：本機驗證，遠端待驗收
+## 入口首次命令模組限定：本機驗證，遠端待驗收
+
+Start／Stop 僅將首次 `Join-Path` 呼叫限定為 `Microsoft.PowerShell.Management\Join-Path`，保留 provider 路徑行為與原有身分驗證。共用啟停腳本、HTTP、資料格式與安全負向案例未放寬；不修改 ExecutionPolicy 或 PSModulePath。診斷工具的入口截斷契約同步更新，保留舊 `header-join` 基準，讓 `entry-body-parse` 使用目前正式入口的首次限定方式。
+
+於 2026-10-30 13:14:45（台灣時間，UTC+8）完成 Windows／Python 3.12.14 全套 158 項：157 通過、1 項 POSIX 平台略過，耗時 188.811 秒。48 次合成啟停與六次 Probe 均完成，無 timeout／spawn-error／cleanup-error；全套日誌在記憶體機密掃描通過。另完成兩種 PowerShell 共 14 筆實際診斷，未啟動服務，日誌掃描通過。入口截斷、CRLF 與固定輸出契約仍受八項診斷回歸檢查。
+
+本機結果不代表雲端耗時已改善。正式修正仍待新 SHA 的八項完整 CI 與兩組手動診斷驗收；下方 `0aa65d1` 的遠端證據屬修正前版本，不當作本批已通過，也不是零漏洞或獨立滲透測試證明。
+
+## 手動啟動因素診斷：本機及遠端驗收
 
 本批新增開發用 `tests/startup_probe.py` 與僅 workflow_dispatch 執行的 Windows 診斷。每個 shell 七組固定案例，涵蓋 session 執行原則、Join-Path／.NET／模組限定命令、明確載入模組及只解析剩餘入口文字。正式啟停、安全邊界、HTTP 與資料格式未修改，不把這些子程序加入既有完整回歸。
 
@@ -8,7 +16,11 @@
 
 於 2026-10-30 12:19:46（台灣時間，UTC+8）完成 Windows／Python 3.12.14 全套 158 項：157 通過、1 項 POSIX 平台略過，耗時 301.377 秒。原有 48 次啟停與六次 Probe 均完成，沒有 timeout／spawn-error／cleanup-error；全套日誌在記憶體掃描通過。新增八項回歸涵蓋階段輸入拒絕、有限讀取、合成環境、入口截斷及 CRLF 相容；既有安全負向案例維持執行。
 
-先行本機對照沒有重現雲端二十多秒等待，Bypass 開關也沒有穩定慢速差異。首次 Join-Path 約 0.55 秒、純 .NET 組路徑僅數毫秒；明確 Import-Module 後路徑操作變快，僅支持模組／provider 首次初始化值得在雲端對照，不代表確認根因。後續仍需以新 SHA 的完整 CI 與手動兩組七筆結果驗收，不沿用下方 9bbe35d 的成功結果。
+先行本機對照沒有重現雲端二十多秒等待，Bypass 開關也沒有穩定慢速差異。首次 Join-Path 約 0.55 秒、純 .NET 組路徑僅數毫秒；明確 Import-Module 後路徑操作變快，當時僅支持模組／provider 首次初始化值得在雲端對照。
+
+提交 `0aa65d1dc6b5ef53f2bdeabb4603681a7fa7d5e5` 的 [完整 CI](https://github.com/kejamestw/skillpane/actions/runs/41003073015) 於 2026-10-30 12:28:20 至 12:48:26（台灣時間，UTC+8）首次執行八項成功。四組 Python 各 158 項，Windows 各 157 通過／1 略過、Linux 各 147 通過／11 略過；browser 24 項通過。兩組 Windows 各 48 次啟停及六次 Probe 無 timeout／spawn-error／cleanup-error；八份日誌在記憶體掃描通過，repo 私人、零 artifacts。
+
+同提交的 [手動診斷](https://github.com/kejamestw/skillpane/actions/runs/41003075815) 於 2026-10-30 12:28:22 至 12:29:16（台灣時間，UTC+8）兩組、共 14 筆成功；日誌在記憶體機密掃描通過，零 artifacts。Windows PowerShell 5.1 未限定 Join-Path 的首次路徑步驟約 19.8 秒，模組限定整筆約 0.2 秒；舊入口解析案例首次路徑步驟約 12 秒。PowerShell 7 約 0.4～0.6 秒。這是各一次、固定順序的對照，未確認底層搜尋為何變慢，亦未重現先前 60 秒超時；正式入口修正另列上方待驗收批次。
 
 ## 父程序時間觀測：本機及遠端驗收
 

@@ -153,7 +153,9 @@ python -B tests/startup_probe.py --shell powershell7
 | header-dotnet | 僅用 .NET 組合路徑，不提前使用管理模組 cmdlet |
 | header-qualified | 明確以 Microsoft.PowerShell.Management 指定 Join-Path |
 | header-import | 在路徑操作前明確 Import-Module，分開觀察載入時間 |
-| entry-body-parse | 保留正式入口的剩餘文字供解析，但放在頂層 return 後，不執行 |
+| entry-body-parse | 使用目前入口首次路徑命令的模組限定，保留剩餘文字供解析，但放在頂層 return 後，不執行 |
+
+`header-join` 刻意保留舊的未限定呼叫，作為比較基準；`entry-body-parse` 則與目前正式 Start 入口的首次模組限定一致。修正後若基準案例仍慢，不代表正式入口回歸。
 
 逐步 `steps_ms` 由獨立腳本時鐘記錄 entry、preferences-ready、module-ready、runtime-path-ready、shared-path-ready、shared-ready、exit。父程序的首次標記在入口處輸出，輪詢仍有 100 ms 取樣及排程誤差；共用腳本自己的時鐘在載入時才開始，不能把不同起點的欄位直接相減當作精準啟動分解。
 
@@ -163,7 +165,7 @@ python -B tests/startup_probe.py --shell powershell7
 
 同一工具可由 GitHub Actions 的 `Launcher startup diagnosis` 手動執行。它使用兩組 Windows 工作，每組七筆、10 分鐘工作上限，每筆沿用 60 秒預算與最多另等 10 秒的自有程序清理。OS 建立呼叫無法由此方式中斷，整體上限仍由 Actions 控制。它不因 push／PR 自動執行，不影響既有八項 CI；推送工具後仍需另外手動執行並核對確切 SHA，工具尚未推送前不能宣稱已在雲端驗收。
 
-PowerShell 初次使用模組內命令可能觸發自動載入，Join-Path 也依賴 provider；因此換成 .NET 可能只是把初始化成本移到後續 cmdlet，這裡僅作診斷，不據此改寫正式路徑與身分檢查。依據：[模組自動載入](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_modules?view=powershell-5.1)、[Join-Path](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.management/join-path?view=powershell-5.1)。命令列 ExecutionPolicy 僅作用於該 session，不改 registry，見 [powershell.exe 參數](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_powershell_exe?view=powershell-5.1)。
+PowerShell 初次使用模組內命令可能觸發自動載入，Join-Path 也依賴 provider；因此換成 .NET 可能只是把初始化成本移到後續 cmdlet。正式 Start／Stop 僅將首次呼叫寫為 `Microsoft.PowerShell.Management\Join-Path`，保留原有路徑及身分檢查，不修改全域模組路徑或執行原則。依據：[模組自動載入](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_modules?view=powershell-5.1)、[命令優先順序與模組限定](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_command_precedence?view=powershell-5.1)、[Join-Path](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.management/join-path?view=powershell-5.1)。命令列 ExecutionPolicy 僅作用於該 session，不改 registry，見 [powershell.exe 參數](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_powershell_exe?view=powershell-5.1)。
 
 ## 文件展示素材
 

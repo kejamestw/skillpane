@@ -68,6 +68,8 @@ class StartupProbeTests(unittest.TestCase):
                     self.assertNotIn('$launcherLock =', source)
         self.assertIn('Import-Module Microsoft.PowerShell.Management', sources['header-import'])
         self.assertNotIn('Join-Path', sources['header-dotnet'])
+        self.assertIn('$runtimePath=Microsoft.PowerShell.Management\\Join-Path', sources['entry-body-parse'])
+        self.assertNotIn('Microsoft.PowerShell.Management\\Join-Path', sources['header-join'])
 
     def test_environment_is_synthetic_allowlist_without_mutating_parent(self):
         original = {'PATH': 'synthetic-tools', 'SystemRoot': 'synthetic-system', 'GH_TOKEN': 'private-payload',

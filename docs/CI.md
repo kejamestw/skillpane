@@ -76,4 +76,8 @@ Windows 啟停測試會印出允許清單內的階段耗時，說明與安全限
 
 `Launcher startup diagnosis` 僅接受 workflow_dispatch，兩組固定 shell 矩陣各執行七組隔離案例。它不執行應用程式或既有完整回歸，也不替代八項 CI；僅保留固定數值摘要、不上傳原始日誌或 artifacts，說明見 [測試指南](TESTING.md#手動啟動因素診斷)。
 
-後續推送本工具時，仍以新 SHA 核對完整 CI；手動工作另記錄該 SHA、兩組七筆結果、步驟順序及日誌機密掃描。新工具尚未推送／執行時保留待驗收，不以本機較快或先前 CI 成功代替雲端對照結論。
+`0aa65d1dc6b5ef53f2bdeabb4603681a7fa7d5e5` 的 [完整 CI](https://github.com/kejamestw/skillpane/actions/runs/41003073015) 於 2026-10-30 12:28:20 至 12:48:26（台灣時間，UTC+8）首次執行八項成功。四組 Python 各 158 項，Windows 各 157 通過／1 略過、Linux 各 147 通過／11 略過；browser 24 項通過，兩組 Windows 各 48 次啟停及六次 Probe 均無 timeout／spawn-error／cleanup-error。八份日誌在記憶體機密掃描通過，repo 私人、零 artifacts。
+
+同 SHA 的 [手動診斷](https://github.com/kejamestw/skillpane/actions/runs/41003075815) 於 2026-10-30 12:28:22 至 12:29:16（台灣時間，UTC+8）兩組成功、共 14 筆；兩份日誌在記憶體掃描通過，零 artifacts。Windows PowerShell 5.1 的 `header-join` 首次路徑步驟約 19.8 秒，`header-qualified` 整筆約 0.2 秒；舊 `entry-body-parse` 首次路徑步驟約 12 秒。PowerShell 7 各筆約 0.4～0.6 秒。每案例僅一次、固定順序，可能受快取與排程影響；這縮小了未限定命令探索的慢點，未確認底層原因，也不證明先前 60 秒超時已修復。
+
+後續正式入口首次呼叫改為模組限定，診斷契約同步更新；`header-join` 保留舊基準，`entry-body-parse` 使用目前入口方式。這批修正仍須以自己的新 SHA 執行八項完整 CI 及手動兩組對照，不能沿用 `0aa65d1` 的成功結果。

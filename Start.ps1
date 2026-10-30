@@ -1,7 +1,7 @@
 param([switch]$NoBrowser, [ValidateRange(1,65535)][int]$Port = 8766)
 $ErrorActionPreference = 'Stop'
 $appUrl = "http://127.0.0.1:$Port"
-$runtimePath = Join-Path $PSScriptRoot '.runtime'
+$runtimePath = Microsoft.PowerShell.Management\Join-Path $PSScriptRoot '.runtime'
 . (Join-Path $PSScriptRoot 'scripts\Launcher.ps1')
 Write-SkillpaneStage 'start-enter'
 $launcherLock = Open-SkillpaneLock $runtimePath

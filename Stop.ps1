@@ -1,6 +1,6 @@
 param([ValidateRange(1,65535)][int]$Port = 8766)
 $ErrorActionPreference = 'Stop'
-. (Join-Path $PSScriptRoot 'scripts\Launcher.ps1')
+. (Microsoft.PowerShell.Management\Join-Path $PSScriptRoot 'scripts\Launcher.ps1')
 Write-SkillpaneStage 'stop-enter'
 $statePath = Join-Path $PSScriptRoot '.runtime\server.json'
 if (-not (Test-Path -LiteralPath $statePath)) { Write-Output 'No recorded Skillpane process.'; exit 0 }
