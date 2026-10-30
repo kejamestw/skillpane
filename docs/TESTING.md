@@ -132,6 +132,39 @@ python -B -m unittest discover -s tests -p test_launcher.py -v
 
 依據：[Playwright 安裝](https://playwright.dev/docs/intro)、[測試瀏覽器](https://playwright.dev/docs/browsers)。
 
+## 手動啟動因素診斷
+
+`tests/startup_probe.py` 是開發工具，不是面板功能，也不是效能基準。先前雲端正式案例的首標記前約有 21～24 秒等待，而最小探針僅約 0.3 秒；此工具用固定案例縮小差異來源，不把成功執行當作超時根因已修復。
+
+在 Windows repository 根目錄執行：
+
+```sh
+python -B tests/startup_probe.py
+python -B tests/startup_probe.py --shell windows-powershell
+python -B tests/startup_probe.py --shell powershell7
+```
+
+預設兩種 shell 都必須可用，缺少指定 shell 時明確失敗；不靜默略過。每個 shell 七組、各執行一次，沒有自動重試：
+
+| 案例 | 對照 |
+| --- | --- |
+| minimal-default／minimal-bypass | 相同最小載入，僅差本次程序的 ExecutionPolicy 參數 |
+| header-join | 以 Join-Path 組合 runtime 與共用腳本路徑 |
+| header-dotnet | 僅用 .NET 組合路徑，不提前使用管理模組 cmdlet |
+| header-qualified | 明確以 Microsoft.PowerShell.Management 指定 Join-Path |
+| header-import | 在路徑操作前明確 Import-Module，分開觀察載入時間 |
+| entry-body-parse | 保留正式入口的剩餘文字供解析，但放在頂層 return 後，不執行 |
+
+逐步 `steps_ms` 由獨立腳本時鐘記錄 entry、preferences-ready、module-ready、runtime-path-ready、shared-path-ready、shared-ready、exit。父程序的首次標記在入口處輸出，輪詢仍有 100 ms 取樣及排程誤差；共用腳本自己的時鐘在載入時才開始，不能把不同起點的欄位直接相減當作精準啟動分解。
+
+工具只複製共用腳本與受檢查的入口文字到 `.runtime/startup-probes/`，環境變數使用與正式啟停測試相同的必要 OS 允許清單、合成 HOME／USERPROFILE，不沿用 PSModulePath、既有程序執行原則或憑證。這是隔離測試條件，不代表使用者的原生 shell 設定。入口排版不符安全截斷契約時拒絕產生腳本，LF／CRLF 均支援；最後核對原始檔指紋，以及副本沒有建立 `.data/`／`.runtime/`。
+
+所有案例在服務操作前返回，未啟動 Python 服務、讀取技能、查詢連接埠、開瀏覽器或修改系統執行原則。固定 port 參數只是解析輸入，不繫結 socket。原始 stdout／stderr 留在忽略的合成 fixture，不清理既有資料、不上傳 artifacts；console 只印固定案例、shell、階段名稱及數值。失敗不回印原始例外或命令。
+
+同一工具可由 GitHub Actions 的 `Launcher startup diagnosis` 手動執行。它使用兩組 Windows 工作，每組七筆、10 分鐘工作上限，每筆沿用 60 秒預算與最多另等 10 秒的自有程序清理。OS 建立呼叫無法由此方式中斷，整體上限仍由 Actions 控制。它不因 push／PR 自動執行，不影響既有八項 CI；推送工具後仍需另外手動執行並核對確切 SHA，工具尚未推送前不能宣稱已在雲端驗收。
+
+PowerShell 初次使用模組內命令可能觸發自動載入，Join-Path 也依賴 provider；因此換成 .NET 可能只是把初始化成本移到後續 cmdlet，這裡僅作診斷，不據此改寫正式路徑與身分檢查。依據：[模組自動載入](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_modules?view=powershell-5.1)、[Join-Path](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.management/join-path?view=powershell-5.1)。命令列 ExecutionPolicy 僅作用於該 session，不改 registry，見 [powershell.exe 參數](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_powershell_exe?view=powershell-5.1)。
+
 ## 文件展示素材
 
 README 與操作導覽的四張 PNG 使用正式前端及 `scripts/demo_fixture.py` 的虛構資料：六個個人技能、一個內建項目、自訂中文名稱、筆記與一筆常用提示詞。另在隔離 home 事先準備新增、SKILL.md 變更與移到排除目錄三種情境，產生三筆掃描事件；掃描與基準時間固定為示範值，不使用真實技能或原始作者內容。

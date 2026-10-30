@@ -67,3 +67,13 @@ Windows 啟停測試會印出允許清單內的階段耗時，說明與安全限
 該提交 Windows PowerShell 5.1 的成功 Start 中位約 20.6／25.4 秒（各七筆），PowerShell 7 各一筆約 1.4／1.7 秒；健康回應等待約半秒。當時只有階段耗時，無法區分建立呼叫、首次進入腳本及退出等待，因此不將差距直接當作特定版本或防毒程式的根因。
 
 後續新增的 spawn_ms、first_stage_seen_ms、exit_stage_seen_ms、process_end_ms、script_elapsed_ms 與六次最小 Probe 觀測，仍須以它自己的提交在 GitHub 驗收；不能沿用 95b7f6d 的成功結論。未知值為 -1，輪詢觀測有取樣誤差；Probe 不啟動應用程式，亦不代表真實啟動案例的等量工作負載。每次新提交應核對實際測試數量、48 次真實啟停與六次 Probe，另保留 24 項 browser、secrets 及最終 validation。
+
+上述父程序觀測已由 `9bbe35dbb7572f3f709fe6a01d565231f84cd5ca` 的 [完整 CI](https://github.com/kejamestw/skillpane/actions/runs/40997806303) 於 2026-10-30 11:30:53 至 11:50:48（台灣時間，UTC+8）首次執行驗收：八項成功，四組 Python 各 150 項（Windows 各 149 通過／1 略過，Linux 各 139 通過／11 略過），browser 24 項通過。兩組 Windows 各 48 次啟停及六次 Probe 沒有 timeout／spawn-error／cleanup-error；八份日誌在記憶體掃描通過，repo 私人、零 artifacts。
+
+本輪 Windows PowerShell 5.1 成功 Start 首次標記觀測中位數約 21.4／24.1 秒，但最小 Probe 僅約 0.3 秒。根因仍未確認，不能將差距直接歸因於一般 PowerShell 啟動或特定防毒程式。
+
+## 手動因素診斷工作
+
+`Launcher startup diagnosis` 僅接受 workflow_dispatch，兩組固定 shell 矩陣各執行七組隔離案例。它不執行應用程式或既有完整回歸，也不替代八項 CI；僅保留固定數值摘要、不上傳原始日誌或 artifacts，說明見 [測試指南](TESTING.md#手動啟動因素診斷)。
+
+後續推送本工具時，仍以新 SHA 核對完整 CI；手動工作另記錄該 SHA、兩組七筆結果、步驟順序及日誌機密掃描。新工具尚未推送／執行時保留待驗收，不以本機較快或先前 CI 成功代替雲端對照結論。
