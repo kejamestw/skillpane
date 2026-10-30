@@ -5,7 +5,7 @@
 - Source: https://github.com/AIjunja/oh-my-skills
 - Reviewed upstream commit: `6ad9eb7d1106c223277a369d2cdba8649fbfde5d`
 - Copyright (c) 2026 oh-my-skills Maintainers
-- License: MIT; full unchanged notice in `third_party/oh-my-skills.LICENSE`.
+- License: MIT; full unchanged notice in `third_party/oh-my-skills.LICENSE`. The root `LICENSE` covers Skillpane itself; this upstream copyright and permission notice stays with every copy of the repository.
 
 The initial frontmatter parser in `skillpane/catalog.py` was adapted from upstream `skill_ledger/scanner.py`. It has since been replaced by the independent, conservative field reader in `skillpane/metadata.py`; the upstream notice remains preserved. Local skill inventory concepts informed this implementation. Upstream's GUI server, create/edit/archive manager and frontend are not used by Skillpane.
 
