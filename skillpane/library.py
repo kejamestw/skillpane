@@ -28,6 +28,7 @@ class Library:
         self.live = {}
         self.raw = {}
         self.git_cache = {}
+        self.reconciled, self.catalog_view = None, None
         self.reconcile()
         self.history = ScanHistory(store)
         self.observe_changes()
@@ -50,6 +51,8 @@ class Library:
     def reconcile(self):
         """Path continuity first; content moves only when both sides are unique."""
         with self.store.lock:
+            # Read before the snapshot: a concurrent refresh only makes the key stale.
+            generation = self.catalog.generation
             catalog = self.catalog.snapshot()
             next_state = clone(self.store.state)
             identities, annotations = next_state['identities'], next_state['annotations']
@@ -90,11 +93,19 @@ class Library:
                 else:
                     self.store.commit(next_state)
             self.live, self.raw = live, raw
+            self.reconciled, self.catalog_view = (generation, self.store.state['revision']), catalog
             return catalog
+
+    def current(self):
+        """Reconcile only after a rescan or a stored-data change; otherwise reuse the result."""
+        with self.store.lock:
+            if self.reconciled != (self.catalog.generation, self.store.state['revision']):
+                return self.reconcile()
+            return self.catalog_view
 
     def snapshot(self):
         with self.store.lock:
-            catalog = clone(self.reconcile())
+            catalog = clone(self.current())
             reverse = {raw: stable for stable, raw in self.live.items()}
             for skill in catalog['skills']:
                 skill['id'] = reverse[skill['id']]

@@ -219,6 +219,27 @@ class LibraryTests(unittest.TestCase):
             self.assertEqual({call.args[0].name for call in unlink.call_args_list},{item['id'] for item in preview['files']})
         self.assertNotIn(files_before[0]['id'],{item['id'] for item in preview['files']})
 
+    def test_repeated_state_reads_reuse_reconciliation_until_inputs_change(self):
+        with patch.object(self.catalog, 'snapshot', wraps=self.catalog.snapshot) as catalog_snapshot:
+            first = self.library.snapshot()
+            self.assertEqual(self.library.snapshot(), first)
+            self.assertEqual(catalog_snapshot.call_count, 0)
+            self.store.update(self.ids['first'], {'note': 'Fresh note'})
+            self.assertEqual(self.library.snapshot()['annotations'][self.ids['first']]['note'], 'Fresh note')
+            self.assertEqual(catalog_snapshot.call_count, 1)
+            skill(self.home, '.agents/skills/third', 'third')
+            self.catalog.refresh()
+            self.assertIn('third', [s['name'] for s in self.library.snapshot()['skills']])
+            self.assertEqual(catalog_snapshot.call_count, 2)
+            self.library.rescan()
+            self.assertEqual(catalog_snapshot.call_count, 3)
+        replacement = Catalog(self.home)
+        self.library.catalog = replacement
+        self.assertNotEqual(replacement.generation, self.catalog.generation)
+        with patch.object(replacement, 'snapshot', wraps=replacement.snapshot) as replaced:
+            self.library.snapshot()
+            self.assertEqual(replaced.call_count, 1)
+
     def test_identical_writes_skip_rewrite_and_backup_but_still_detect_external_changes(self):
         self.store.update(self.ids['first'], {'note': 'Same note', 'favorite': True})
         backups, content, revision = self.transfers.backups(), self.store.path.read_bytes(), self.store.state['revision']

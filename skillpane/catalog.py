@@ -7,6 +7,7 @@ from __future__ import annotations
 from collections import defaultdict
 from datetime import datetime, timezone
 from hashlib import sha256
+import itertools
 import os
 from pathlib import Path
 import re
@@ -15,7 +16,9 @@ import threading
 from .metadata import Document, frontmatter, parse_mapping, invocation_setting
 
 LIMIT = 2 * 1024 * 1024
-EXCLUDED = {'.git', '.trash', '.disabled', '__pycache__', 'node_modules'}
+# Unique across Catalog instances so a replaced catalog never matches an old scan.
+GENERATIONS = itertools.count(1)
+EXCLUDED ={'.git', '.trash', '.disabled', '__pycache__', 'node_modules'}
 SOURCE_LABELS = {'personal': '個人技能', 'managed': 'Claude 同步',
                  'system': '系統內建', 'plugin': '外掛快取'}
 GUIDES = {
@@ -217,6 +220,7 @@ class Catalog:
         self.entries, self.by_id, self.stats, self.overlaps = [], {}, {}, []
         self.generated_at = ''
         self.related_groups = []
+        self.generation = 0
         self.refresh()
 
     def refresh(self):
@@ -277,6 +281,7 @@ class Catalog:
             self.stats, self.overlaps = stats, overlaps
             self.related_groups = related_groups
             self.generated_at = datetime.now(timezone.utc).isoformat()
+            self.generation = next(GENERATIONS)
 
     @staticmethod
     def find_overlaps(entries):
