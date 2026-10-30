@@ -1,8 +1,10 @@
 import http.client
+import io
 import json
 from pathlib import Path
 import threading
 import unittest
+from unittest.mock import patch
 
 from skillpane.server import AppServer
 from test_catalog import fixture_root, skill
@@ -90,6 +92,25 @@ class ServerTests(unittest.TestCase):
     def test_rescan_requires_trusted_request(self):
         self.assertEqual(self.request('POST','/api/rescan',{},{} )[0],403)
         self.assertEqual(self.request('POST','/api/rescan',self.write_headers(),{})[0],200)
+
+    def test_unexpected_failures_return_generic_json_and_server_keeps_serving(self):
+        cases = [('GET', '/api/state', None, self.server.library, 'snapshot'),
+                 ('GET', '/api/export', None, self.server.catalog, 'snapshot'),
+                 ('POST', '/api/rescan', {}, self.server.library, 'rescan'),
+                 ('PATCH', '/api/annotation?id=' + self.skill_id, {'favorite': True}, self.server.annotations, 'update')]
+        for method, path, payload, owner, name in cases:
+            with self.subTest(method=method, path=path):
+                headers = self.write_headers() if method != 'GET' else None
+                with patch.object(owner, name, side_effect=AttributeError('C:/synthetic/private/path')), \
+                        patch('sys.stderr', new_callable=io.StringIO) as stderr:
+                    code, response_headers, body = self.request(method, path, headers, payload)
+                self.assertEqual(code, 500)
+                self.assertTrue(response_headers['Content-Type'].startswith('application/json'))
+                self.assertIn("default-src 'none'", response_headers['Content-Security-Policy'])
+                self.assertIn('error', json.loads(body))
+                self.assertNotIn(b'synthetic/private', body)
+                self.assertEqual(stderr.getvalue(), 'Skillpane request failed: AttributeError\n')
+        self.assertEqual(self.request('GET', '/api/state')[0], 200)
 
     def test_refuses_lan_and_state_inside_skill_root(self):
         with self.assertRaises(ValueError):

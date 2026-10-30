@@ -4,6 +4,7 @@ import argparse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 from pathlib import Path
+import sys
 from urllib.parse import parse_qs, urlsplit
 
 from . import __version__
@@ -112,13 +113,37 @@ class Handler(BaseHTTPRequestHandler):
             if 0 < length <= 24000:
                 self.rfile.read(length)
             self._body_consumed = True
+        self._responded = True
         self.send_response(status)
         self.send_header('Content-Type', content_type)
         self.send_header('Content-Length', str(len(body)))
         self.end_headers()
         self.wfile.write(body)
 
+    def guarded(self, route):
+        """Answer unexpected failures with a generic JSON error, not a dropped socket."""
+        try:
+            route()
+        except Exception as error:
+            self.close_connection = True
+            # Type only: messages may contain local paths or skill text.
+            sys.stderr.write(f'Skillpane request failed: {type(error).__name__}\n')
+            if not getattr(self, '_responded', False):
+                try:
+                    self.json({'error': '操作未完成或無法顯示結果，請重新整理面板後再確認。'}, 500)
+                except OSError:
+                    pass
+
     def do_GET(self):
+        self.guarded(self.route_get)
+
+    def do_POST(self):
+        self.guarded(self.route_post)
+
+    def do_PATCH(self):
+        self.guarded(self.route_patch)
+
+    def route_get(self):
         if not self.trusted():
             return
         url = self.target()
@@ -188,7 +213,7 @@ class Handler(BaseHTTPRequestHandler):
             raise ValueError('請求必須是 JSON 物件。')
         return payload
 
-    def do_POST(self):
+    def route_post(self):
         if not self.trusted(write=True):
             return
         url = self.target()
@@ -223,7 +248,7 @@ class Handler(BaseHTTPRequestHandler):
         except (OSError, RuntimeError, TypeError):
             self.json({'error': '操作未完成，請保留現有資料並重新預覽。'}, 400)
 
-    def do_PATCH(self):
+    def route_patch(self):
         if not self.trusted(write=True):
             return
         url = self.target()
