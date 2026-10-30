@@ -2,7 +2,7 @@
 
 先閱讀 [操作手冊](docs/USER_GUIDE.md)。功能問題透過 repository 的 Bug report 表單回報；漏洞依 [SECURITY.md](SECURITY.md) 私下處理。本專案由個人維護，沒有回覆時效承諾。
 
-漏洞請依 [SECURITY.md](SECURITY.md) 透過 GitHub 的 Report a vulnerability 私下回報，不要使用公開 Issue 或 noreply 信箱；不設安全信箱。此管道已啟用，一般回報者入口已驗證可開啟；收件仍待維護者依 [回報管道驗收](docs/SECURITY_REPORTING.md) 確認。一般功能問題與建議請用 Issue 表單。
+漏洞請依 [SECURITY.md](SECURITY.md) 透過 GitHub 的 Report a vulnerability 私下回報，不要使用公開 Issue 或 noreply 信箱；不設安全信箱。此管道已啟用，一般回報者入口已驗證可開啟，驗收紀錄見 [回報管道驗收](docs/SECURITY_REPORTING.md)。一般功能問題與建議請用 Issue 表單。
 
 | 狀況 | 處理方式 |
 | --- | --- |

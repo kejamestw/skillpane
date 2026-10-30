@@ -1,10 +1,12 @@
 # 更新紀錄
 
-## 0.4.0 — Unreleased
+## 0.4.0 — 2026-10-31
+
+首次公開發布，也是第一個建立 Git tag 的版本。需要 Python 3.11 以上；從 0.3.2 以前的版本更新時，請先用舊版 Windows 啟動器停止背景服務，新版不接管舊格式的程序紀錄。
 
 - 新增行為準則，改編自 Contributor Covenant 2.1，提供維護者聯絡信箱處理行為問題；安全漏洞仍只透過 GitHub 私下回報。貢獻指南加入行為準則連結。
 - 根目錄 LICENSE 改為標準 MIT 格式，只列 Skillpane 的版權行，讓 GitHub 能辨識授權；上游 oh-my-skills 的版權與授權全文持續完整保留於 `third_party/oh-my-skills.LICENSE`，THIRD_PARTY_NOTICES 註明其與本專案授權的關係。
-- Repository 於 2026-10-31 公開，並啟用 GitHub 私下漏洞回報、secret scanning 與 push protection、Dependabot 安全更新、CodeQL 及 `main` 分支保護。安全政策、支援、README、Issue 表單與路線圖改為公開後的實際狀態；回報入口與收件尚待維護者驗收，完成前不發布正式版本。
+- Repository 於 2026-10-31 公開，並啟用 GitHub 私下漏洞回報、secret scanning 與 push protection、Dependabot 安全更新、CodeQL 及 `main` 分支保護。安全政策、支援、README、Issue 表單與路線圖改為公開後的實際狀態；回報表單入口已以非擁有者帳號驗證，維護者決定以入口驗收為準。
 - 匯入套件時檢查 Python 版本，低於 3.11 直接以「Skillpane requires Python 3.11 or newer.」結束，不再等到執行中途才失敗；Windows 啟動器提示同步改為 3.11+（原為 3.10+，與 README 及 CI 矩陣不一致）。啟動器若選到過舊的 Python，可設定 `SKILLPANE_PYTHON` 指定其他版本。
 - CI 的 `actions/setup-node` 由 v6 升至 v7.1.0，仍以完整 commit SHA 固定；版本說明未列影響本專案的破壞性變更。對應 Dependabot PR #1。
 - CI 的推送觸發限定 `main`，其他分支改由 pull request 執行，避免同一提交跑兩次；同一 PR 有新提交時取消較舊的執行，`main` 的每次推送仍保留各自的完整結果。
@@ -38,7 +40,7 @@
 - 本機獨立紀錄最多保留 300 筆、5,000 個技能基準及 8 MiB；只記名稱、來源、版本與指紋，不保存全文、結構化路徑或筆記，不包含在整理備份或清單匯出。
 - 新增損壞／未來格式、外部改寫、連結導向、寫入失敗、並行重掃、容量上限與 HTTP 負向測試，以及四種瀏覽器環境的變更紀錄操作測試。掃描不代表安裝、停用或實際使用；不追蹤輔助腳本內容。
 
-## 0.3.3 — Unreleased
+## 0.3.3 — 未單獨發布（內容包含於 0.4.0）
 
 - 調整 Windows CI 總時間上限為 25 分鐘，以容納 hosted runner 的真實 PowerShell 啟動器回歸；每次指令仍限 60 秒，Linux 上限與測試範圍維持不變，首次遠端逾時不計為通過。
 - 明列私人期間尚無外部漏洞回報入口，修正無權限者可開聯絡 Issue 的誤導；維護者選定公開時啟用 GitHub 原生回報，補上設定、入口與收件驗收流程，目前尚未啟用。
