@@ -10,7 +10,7 @@ import re
 import shutil
 import threading
 import time
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, unquote, urlsplit
 from uuid import uuid4
 
 MAX_BYTES = 4 * 1024 * 1024
@@ -21,6 +21,10 @@ TEXT_LIMITS = {'note': 4000, 'alias': 100, 'summary': 600, 'category': 40,
 SOURCES = {'personal', 'managed', 'system', 'plugin', 'unknown'}
 WINDOWS_REPLACE = os.name == 'nt'
 REPLACE_DELAYS = (0.025, 0.05, 0.1, 0.2)
+CREDENTIAL_KEY = re.compile(r'token|secret|password|api.?key|authorization', re.I)
+# Well-known credential prefixes; a hint for typing mistakes, not a secret scanner.
+TOKEN_PREFIX = re.compile(r'(?<![A-Za-z0-9_-])(?:(?:gh[pousr]_|github_pat_|glpat-|xox[abprs]-|sk-)[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16})')
+SOURCE_URL_ERROR = '來源網址請使用不含帳密或憑證參數的 http／https 網址。'
 
 
 class PromptConflict(ValueError):
@@ -117,12 +121,12 @@ def validate_annotation(payload):
             url = urlsplit(payload['source_url'])
             if url.scheme not in {'http', 'https'} or not url.hostname or url.username or url.password:
                 raise ValueError()
-            if any(re.search(r'token|secret|password|api.?key|authorization', key, re.I) for key in parse_qs(url.query)):
+            if any(CREDENTIAL_KEY.search(key) for key in parse_qs(url.query)):
                 raise ValueError()
             if any(c.isspace() for c in payload['source_url']):
                 raise ValueError()
         except ValueError:
-            raise ValueError('來源網址請使用不含帳密或憑證參數的 http／https 網址。') from None
+            raise ValueError(SOURCE_URL_ERROR) from None
     if 'prompts' in payload:
         prompts = payload['prompts']
         if not isinstance(prompts, list) or len(prompts) > 20:
@@ -136,6 +140,13 @@ def validate_annotation(payload):
                 if not isinstance(prompt[field], str) or not prompt[field].strip() or len(prompt[field]) > limit or '\x00' in prompt[field]:
                     raise ValueError('提示詞須填名稱與內容，名稱最多 80 字、內容最多 4000 字。')
     return clone(payload)
+
+
+def credential_hint(url):
+    """Stricter rule for newly typed URLs; stored and imported values keep the rule above."""
+    parts = urlsplit(url)
+    keys = [*parse_qs(parts.query, keep_blank_values=True), *parse_qs(parts.fragment, keep_blank_values=True)]
+    return any(CREDENTIAL_KEY.search(key) for key in keys) or TOKEN_PREFIX.search(unquote(url)) is not None
 
 
 def empty_state():
@@ -298,6 +309,8 @@ class Annotations:
 
     def update(self, skill_id, payload, *, expected_prompts=None):
         validate_annotation(payload)
+        if payload.get('source_url') and credential_hint(payload['source_url']):
+            raise ValueError(SOURCE_URL_ERROR)
         if expected_prompts is not None:
             validate_annotation({'prompts': expected_prompts})
         if not valid_id(skill_id):

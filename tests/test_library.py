@@ -234,6 +234,27 @@ class LibraryTests(unittest.TestCase):
             with self.subTest(field=next(iter(value))), self.assertRaises(ValueError):
                 self.store.update(self.ids['first'], value)
 
+    def test_new_source_urls_reject_fragment_credentials_and_known_tokens(self):
+        token = 'synthetic' + 'X' * 24
+        for url in ['https://example.invalid/#access_token=' + token, 'https://example.invalid/?token=',
+                    'https://example.invalid/?q=ghp_' + token, 'https://example.invalid/' + 'sk-proj-' + token,
+                    'https://example.invalid/?q=%67hp_' + token]:
+            with self.subTest(url=url[:40]), self.assertRaisesRegex(ValueError, '來源網址'):
+                self.store.update(self.ids['first'], {'source_url': url})
+        for url in ['https://example.invalid/#readme', 'https://sk-example.invalid/docs',
+                    'https://example.invalid/desk-organizer-' + token, 'https://example.invalid/?topic=tokens-guide']:
+            with self.subTest(url=url[:40]):
+                self.assertEqual(self.store.update(self.ids['first'], {'source_url': url})['source_url'], url)
+
+    def test_stored_and_imported_source_urls_keep_the_original_rule(self):
+        url = 'https://example.invalid/#access_token=synthetic-value'
+        state = clone(self.store.state)
+        state['annotations'][self.ids['first']] = {'source_url': url}
+        self.store.commit(state)
+        self.assertEqual(Annotations(self.store.directory).snapshot()[self.ids['first']]['source_url'], url)
+        records = {record['id']: record for record in validate_backup(self.transfers.export())['records']}
+        self.assertEqual(records[self.ids['first']]['annotation'], {'source_url': url})
+
     def test_external_file_changes_are_not_overwritten(self):
         state = clone(self.store.state)
         self.store.path.write_text('Changed by another synthetic process', encoding='utf-8')
