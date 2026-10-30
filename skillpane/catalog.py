@@ -41,6 +41,11 @@ def parse_frontmatter(text: str) -> dict:
             if len(p) == 1 and document.error_for(p) is None}
 
 
+def decode(raw: bytes) -> str:
+    """Same text as read_text(utf-8-sig, errors=replace) with universal newlines."""
+    return raw.decode('utf-8-sig', errors='replace').replace('\r\n', '\n').replace('\r', '\n')
+
+
 def roots(home: Path):
     return [home / '.agents/skills', home / '.codex/skills',
             home / '.claude/skills', home / '.codex/plugins/cache']
@@ -319,7 +324,15 @@ class Catalog:
                                    'project_skills_scanned': False, 'activation_verified': False}}
 
     def content(self, skill_id):
-        return self.source_path(skill_id).read_text(encoding='utf-8-sig', errors='replace')
+        return decode(self.read(skill_id))
+
+    def read(self, skill_id):
+        """Bounded bytes; a file that grew past the limit after its check is refused."""
+        with self.source_path(skill_id).open('rb') as stream:
+            raw = stream.read(LIMIT + 1)
+        if len(raw) > LIMIT:
+            raise ValueError('來源路徑已變更，請重新掃描。')
+        return raw
 
     def source_path(self, skill_id):
         with self.lock:

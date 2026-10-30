@@ -1,13 +1,12 @@
 """Previewed, revision-checked organization transfers. No skill file writes."""
 from datetime import datetime, timezone
-from hashlib import sha256
 import json
 import re
 import time
 from uuid import uuid4
 
 from .library import signature
-from .storage import (MAX_BYTES, clone, now, pair_key, validate_annotation,
+from .storage import (MAX_BYTES, clone, file_digest, now, pair_key, validate_annotation,
                       validate_comparison, validate_identity, validate_keep,
                       validate_state, valid_id, valid_time, strict_json_loads)
 
@@ -278,7 +277,7 @@ class Transfers:
             self.store.ensure_unchanged()
             keep = self.store.state['settings']['keep_last']
             candidates = self.backups()[keep:] if keep is not None else []
-            fingerprints = {item['id']: sha256(self.backup_path(item['id']).read_bytes()).hexdigest() for item in candidates}
+            fingerprints = {item['id']: file_digest(self.backup_path(item['id'])) for item in candidates}
             return {'token': self._token('cleanup', fingerprints), 'files': candidates, 'keep_last': keep}
 
     def apply_cleanup(self, payload):
@@ -287,7 +286,7 @@ class Transfers:
         with self.store.lock:
             fingerprints = self._take(payload['token'], 'cleanup')
             paths = [self.backup_path(name) for name in fingerprints]
-            if any(sha256(path.read_bytes()).hexdigest() != fingerprints[path.name] for path in paths):
+            if any(file_digest(path) != fingerprints[path.name] for path in paths):
                 raise ValueError('備份內容已變更，請重新預覽。')
             for path in paths:
                 path.unlink()

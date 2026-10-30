@@ -342,6 +342,27 @@ class LibraryTests(unittest.TestCase):
         bare = next(s['id'] for s in library.snapshot()['skills'] if s['name'] == 'bare')
         self.assertEqual(library.provenance(bare)['state'], 'unknown')
 
+    def test_comparison_reads_each_source_once_and_diffs_outside_the_lock(self):
+        held = []
+        def unified_diff(*args, **kwargs):
+            held.append(self.store.lock._is_owned())
+            return iter(['@@ synthetic @@\n'])
+        with patch.object(self.catalog, 'read', wraps=self.catalog.read) as read, \
+                patch('skillpane.library.difflib.unified_diff', unified_diff):
+            result = self.library.comparison(self.ids['first'], self.ids['second'])
+        self.assertEqual(read.call_count, 2)
+        self.assertEqual(held, [False])
+        self.assertEqual(result['diff'], '@@ synthetic @@\n')
+
+    def test_single_read_text_matches_read_text_and_stays_bounded(self):
+        from skillpane.catalog import decode
+        sample = self.base / 'sample.md'
+        sample.write_bytes(b'\xef\xbb\xbfline one\r\nline two\rline three\n\xff\xfe end')
+        self.assertEqual(decode(sample.read_bytes()), sample.read_text(encoding='utf-8-sig', errors='replace'))
+        with patch.object(self.catalog, 'source_path', return_value=sample), patch('skillpane.catalog.LIMIT', 8):
+            with self.assertRaises(ValueError):
+                self.catalog.read('synthetic')
+
     def test_long_comparison_reports_truncation(self):
         self.path.write_text(self.path.read_text(encoding='utf-8') + '\n' + 'Synthetic line\n'*2000, encoding='utf-8')
         self.rescan()

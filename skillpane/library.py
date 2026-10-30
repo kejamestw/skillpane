@@ -2,6 +2,7 @@
 from collections import Counter
 from datetime import datetime
 import difflib
+from hashlib import sha256
 import os
 from pathlib import Path
 import re
@@ -9,8 +10,8 @@ import shutil
 import subprocess
 from uuid import uuid4
 
-from .catalog import roots
-from .storage import clone, file_digest, now, pair_key, validate_comparison
+from .catalog import decode, roots
+from .storage import clone, now, pair_key, validate_comparison
 from .changes import ScanHistory
 
 
@@ -140,31 +141,31 @@ class Library:
                 raise ValueError('請選擇兩個不同技能。')
             self.skill(left_id)
             self.skill(right_id)
-            self.verify_content(left_id)
-            self.verify_content(right_id)
-            originals = [self.content(key) for key in (left_id, right_id)]
-            lines = [text[:128000].splitlines(keepends=True)[:1500] for text in originals]
-            trimmed = any(len(text) > 128000 or len(text.splitlines()) > 1500 for text in originals)
-            diff_parts, size = [], 0
-            for line in difflib.unified_diff(*lines, fromfile=self.skill(left_id)['name'] + ' (A)', tofile=self.skill(right_id)['name'] + ' (B)', n=3):
-                size += len(line)
-                if size > 64000:
-                    trimmed = True
-                    break
-                diff_parts.append(line)
+            originals = [self.verified_text(key) for key in (left_id, right_id)]
+            names = [self.skill(key)['name'] for key in (left_id, right_id)]
+            identical = self.skill(left_id)['sha256'] == self.skill(right_id)['sha256']
             record = clone(self.store.state['comparisons'].get(pair_key(left_id, right_id)))
             if record:
                 record['needs_review'] = any(self.skill(key)['sha256'] != value for key, value in record['fingerprints'].items())
-            return {'diff': ''.join(diff_parts), 'truncated': trimmed, 'record': record,
-                    'identical': self.skill(left_id)['sha256'] == self.skill(right_id)['sha256']}
+        # Diffing uses only the local copies above, so other requests are not blocked.
+        lines = [text[:128000].splitlines(keepends=True)[:1500] for text in originals]
+        trimmed = any(len(text) > 128000 or len(text.splitlines()) > 1500 for text in originals)
+        diff_parts, size = [], 0
+        for line in difflib.unified_diff(*lines, fromfile=names[0] + ' (A)', tofile=names[1] + ' (B)', n=3):
+            size += len(line)
+            if size > 64000:
+                trimmed = True
+                break
+            diff_parts.append(line)
+        return {'diff': ''.join(diff_parts), 'truncated': trimmed, 'record': record, 'identical': identical}
 
-    def verify_content(self, stable_id):
+    def verified_text(self, stable_id):
+        """Read once; the same bytes must still match the scanned fingerprint."""
         skill = self.skill(stable_id)
-        self.content(stable_id)
-        with self.catalog.lock:
-            path = self.catalog.by_id[skill['id']]['_path']
-        if file_digest(path) != skill['sha256']:
+        raw = self.catalog.read(skill['id'])
+        if sha256(raw).hexdigest() != skill['sha256']:
             raise ValueError('技能內容已變更，請重新掃描後再比較或儲存結論。')
+        return decode(raw)
 
     def save_comparison(self, payload):
         if not isinstance(payload, dict) or set(payload) != {'left_id', 'right_id', 'decision', 'reason'}:
@@ -173,8 +174,8 @@ class Library:
             left, right = payload['left_id'], payload['right_id']
             if not isinstance(left, str) or not isinstance(right, str):
                 raise ValueError('技能識別錯誤。')
-            self.verify_content(left)
-            self.verify_content(right)
+            self.verified_text(left)
+            self.verified_text(right)
             record = {**payload, 'fingerprints': {key: self.skill(key)['sha256'] for key in (left, right)}, 'checked_at': now()}
             validate_comparison(record)
             next_state = clone(self.store.state)
