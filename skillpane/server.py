@@ -42,6 +42,8 @@ class AppServer(ThreadingHTTPServer):
         self.annotations = Annotations(directory, recover=True)
         self.library = Library(self.catalog, self.annotations)
         self.transfers = Transfers(self.library)
+        # The allowlisted frontend is small and fixed for the process lifetime.
+        self.assets = {route: ((PROJECT / 'web' / name).read_bytes(), mime) for route, (name, mime) in ASSETS.items()}
         super().__init__((host, port), Handler)
         self.origin = f'http://127.0.0.1:{self.server_address[1]}'
 
@@ -189,9 +191,8 @@ class Handler(BaseHTTPRequestHandler):
                                        for key, setting in entry['invocation'].items()}
             snapshot['scan_scope'].pop('roots', None)
             self.json(snapshot)
-        elif url.path in ASSETS:
-            name, mime = ASSETS[url.path]
-            self.respond((PROJECT / 'web' / name).read_bytes(), mime)
+        elif url.path in self.server.assets:
+            self.respond(*self.server.assets[url.path])
         else:
             self.json({'error': '找不到這個資源。'}, 404)
 

@@ -78,6 +78,13 @@ class ServerTests(unittest.TestCase):
             self.assertIn("frame-ancestors 'none'",headers['Content-Security-Policy'])
             self.assertEqual(headers['Cache-Control'],'no-store')
 
+    def test_static_assets_are_served_from_memory(self):
+        expected = (Path(__file__).resolve().parents[1] / 'web/app.js').read_bytes()
+        with patch.object(Path, 'read_bytes', side_effect=AssertionError('static asset read from disk')):
+            code, headers, body = self.request('GET', '/app.js')
+        self.assertEqual((code, body), (200, expected))
+        self.assertEqual(headers['Content-Type'], 'text/javascript; charset=utf-8')
+
     def test_export_omits_paths_and_body(self):
         code,_,body = self.request('GET','/api/export')
         entry = json.loads(body)['skills'][0]

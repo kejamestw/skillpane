@@ -11,7 +11,7 @@
 | `skillpane/storage.py` | 格式驗證、原子替換與本機備份 |
 | `skillpane/transfers.py` | 有效期／revision 綁定的匯入、關聯與清理預覽 |
 | `skillpane/server.py` | loopback HTTP、同源驗證與資源允許清單 |
-| `web/` | 無建置流程的 HTML、CSS、原生 JavaScript modules |
+| `web/` | 無建置流程的 HTML、CSS、原生 JavaScript modules；服務啟動時載入記憶體，修改後需重新啟動服務 |
 | `tests/` | 合成資料測試與瀏覽器回歸腳本 |
 | `Start.ps1`、`Stop.ps1`、`scripts/Launcher.ps1` | Windows 啟停、排他鎖、程序及監聽身分驗證 |
 | `scripts/launcher_entry.py` | Windows 絕對啟動入口，供命令列核對 checkout |
