@@ -9,8 +9,16 @@
 
 The initial frontmatter parser in `skillpane/catalog.py` was adapted from upstream `skill_ledger/scanner.py`. It has since been replaced by the independent, conservative field reader in `skillpane/metadata.py`; the upstream notice remains preserved. Local skill inventory concepts informed this implementation. Upstream's GUI server, create/edit/archive manager and frontend are not used by Skillpane.
 
-The upstream project is not responsible for this derivative's functionality or maintenance. No affiliation with or endorsement by Apple, OpenAI or Anthropic is implied. Skillpane includes no Apple proprietary fonts, symbols or artwork; it uses the operating system font stack and original SVG icons.
+The upstream project is not responsible for this derivative's functionality or maintenance. No affiliation with or endorsement by Apple, OpenAI or Anthropic is implied. Skillpane includes no Apple proprietary fonts, symbols or artwork; it uses the operating system font stack and original interface icons and an AI-generated Skillpane brand mark.
 
 ### Scanner boundary review (0.3.2)
 
 [Upstream PR #1](https://github.com/AIjunja/oh-my-skills/pull/1), reviewed at head `a478ed8e089a79c6594744f83f8eaa78fab09c83` (yulmi0630), identified inflated inventory from vendored nested skills and proposed stopping at skill folders. Skillpane independently reproduced the issue and implemented a boundary-aware traversal with pre-entry canonical-path checks, branch cycle detection, preserved aliases and separate synthetic regressions. The PR branch was not installed or executed; the existing upstream MIT notice remains preserved.
+
+## Optional desktop prototype
+
+The browser edition retains its standard-library-only Python runtime. The optional Windows desktop build uses pywebview, pythonnet and the dependencies pinned in `requirements-desktop.lock`, plus PyInstaller for packaging. Generated local bundles include the Python license, upstream notices and shipped dependency license/metadata files under `licenses/`. This does not claim that a distributable desktop release has completed its dependency or license review; see [desktop release limitations](docs/DESKTOP.md).
+
+## Skillpane brand artwork
+
+The teal skill-card/SP mark was generated with the built-in imagegen tool and selected by the maintainer. The original PNG and multi-resolution Windows ICO are in `assets/brand/`; the favicon SVG embeds a resized PNG. These assets follow the repository LICENSE and do not contain Apple proprietary symbols, fonts or third-party logos. Pillow was used only for offline format conversion; it is not bundled as an application runtime dependency.

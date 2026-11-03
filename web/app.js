@@ -80,13 +80,17 @@ function toast(message) {
   toastTimer = setTimeout(() => $('#toast').classList.remove('visible'), 2700);
 }
 
+let pendingRequests=0;
 async function api(url, options={}) {
-  const response = await fetch(url, {
-    ...options, headers:{'Content-Type':'application/json','X-Skillpane-Client':'1',...options.headers},
-  });
-  const payload = await response.json();
-  if (!response.ok) {const error=new Error(payload.error || '操作未完成，請稍後再試。');error.status=response.status;throw error;}
-  return payload;
+  pendingRequests++;
+  try {
+    const response = await fetch(url, {
+      ...options, headers:{'Content-Type':'application/json','X-Skillpane-Client':'1',...options.headers},
+    });
+    const payload = await response.json();
+    if (!response.ok) {const error=new Error(payload.error || '操作未完成，請稍後再試。');error.status=response.status;throw error;}
+    return payload;
+  } finally { pendingRequests--; }
 }
 
 function allSkills() { return (state.data?.skills || []).map(skill=>customize(skill,state.data.annotations[skill.id] || {})); }
@@ -397,6 +401,8 @@ document.addEventListener('keydown',event=>{
   if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='k'){event.preventDefault();$('#searchInput').focus();$('#searchInput').select();}
   if(event.key==='Escape' && document.activeElement===$('#searchInput')){state.query='';$('#searchInput').value='';updateResults({resetScroll:true});}
 });
+// Narrow read-only snapshot for the optional desktop close guard (no native API).
+window.skillpaneDesktopSnapshot=()=>({ready:Boolean(state.data),dirty:Boolean(state.drafts.size || state.managementDirty?.size),busy:Boolean(state.busy.size || pendingRequests),preferences:Object.fromEntries(['skillpane-theme','skillpane-text-size','skillpane-sidebar-hidden'].map(key=>[key,localStorage.getItem(key)]))});
 window.addEventListener('beforeunload',event=>{if(state.drafts.size || state.managementDirty?.size){event.preventDefault();event.returnValue='';}});
 if(/Mac|iPhone|iPad/.test(navigator.platform))$('#searchShortcut').textContent='⌘ K';
 async function syncState(){state.data=await api('/api/state');renderSummary();renderFilters();updateResults({renderSelected:true});}

@@ -14,7 +14,7 @@
 
 ## 開始使用
 
-需要 Python 3.11 以上版本，並建議使用仍在官方安全支援期內的版本；較舊版本啟動時會直接提示並結束。專案不需第三方 Python／JavaScript 執行相依套件，也不需要 Node 建置。目前是早期版本，主要介面為繁體中文，尚無語言切換。
+需要 Python 3.11 以上版本，並建議使用仍在官方安全支援期內的版本；較舊版本啟動時會直接提示並結束。瀏覽器版不需第三方 Python／JavaScript 執行相依套件，也不需要 Node 建置。目前是早期版本，主要介面為繁體中文，尚無語言切換。
 
 ```sh
 git clone https://github.com/kejamestw/skillpane.git
@@ -30,6 +30,8 @@ python -m skillpane
 開啟 <http://127.0.0.1:8766>。連接埠可用 `--port` 指定。
 
 Windows 可雙擊 `Open-Skillpane.cmd`。啟動器優先使用 `SKILLPANE_PYTHON` 指定的 Python、Codex 內附 Python，再尋找 PATH 上的 Python；使用 `Start.ps1 -NoBrowser` 可只啟動服務。停止服務執行 `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Stop.ps1`。
+
+**Windows 桌面原型（選用）：**可使用獨立視窗啟動，另有不需自行安裝 Python 的本機 EXE 打包方式。桌面版有額外相依套件，整理資料與瀏覽器版分開保存；尚非正式桌面 release，詳見 [桌面操作與打包](docs/DESKTOP.md)。
 
 0.3.3 起，Windows 啟停腳本都支援 `-Port 8767`；啟動器在同一 checkout 只管理一個服務，換連接埠前先停止原服務。啟停會核對程序建立時間、Python、專案啟動入口與紀錄，啟動另確認監聽程序；連接埠已被其他服務占用時拒絕，不接管既有服務。升級前請先用舊版啟動器停止背景服務，新版不接管仍執行中的舊格式程序紀錄。
 

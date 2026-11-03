@@ -12,7 +12,7 @@ The tour also shows [scan history](docs/QUICK_TOUR.md#6-看最近的技能變更
 
 ## Run locally
 
-Python 3.11 or newer is required; use a currently security-supported release. Older versions stop at startup with a clear message. There are no third-party runtime dependencies or frontend build steps.
+Python 3.11 or newer is required; use a currently security-supported release. Older versions stop at startup with a clear message. The browser edition has no third-party runtime dependencies or frontend build steps; the optional Windows desktop host has separate, pinned dependencies.
 
 ```sh
 git clone https://github.com/kejamestw/skillpane.git
@@ -20,7 +20,7 @@ cd skillpane
 python -m skillpane
 ```
 
-Open `http://127.0.0.1:8766/`. Use `--port` to choose another port. Private repositories require account access; never place a token in a clone URL. On Windows, double-click `Open-Skillpane.cmd`, or run `Start.ps1 -NoBrowser`; use `Stop.ps1` to stop that launcher instance. On macOS/Linux, stop the foreground process with Ctrl+C.
+Open `http://127.0.0.1:8766/`. Use `--port` to choose another port. This public repository can be cloned without an account or token. On Windows, double-click `Open-Skillpane.cmd`, or run `Start.ps1 -NoBrowser`; use `Stop.ps1` to stop that launcher instance. On macOS/Linux, stop the foreground process with Ctrl+C.
 
 Since 0.3.3, both Windows scripts accept `-Port 8767`. Stop the existing service before changing ports; the launcher manages one instance per checkout. The launcher validates process creation time, Python and the absolute checkout entry point, and checks socket ownership before reporting readiness. Occupied ports are rejected rather than adopted. Stop older background services with the previous launcher before upgrading: live legacy process records are deliberately not adopted by the new scripts.
 
@@ -67,3 +67,7 @@ The [security testing record (Chinese)](docs/SECURITY_TESTING.md) describes loca
 ## License and attribution
 
 MIT, with preserved upstream attribution. Skillpane began as an independent derivative of [oh-my-skills](https://github.com/AIjunja/oh-my-skills); see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and [LICENSE](LICENSE). It is not affiliated with Apple, OpenAI or Anthropic.
+
+## Optional Windows desktop prototype
+
+The optional pywebview/WebView2 desktop host reuses the existing UI and Python backend. The browser edition keeps its original startup path; desktop dependencies are optional and display/organization data live separately. See the [desktop prototype guide (Traditional Chinese)](docs/DESKTOP.md) for source setup, local one-folder EXE builds, data migration and unverified release requirements. This is not an installer or a signed desktop release.

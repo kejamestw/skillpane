@@ -91,3 +91,15 @@ Playwright 1.64.1 是鎖定於 package-lock.json 的開發相依套件，使用 
 8. 由 repository 擁有者明確決定何時改為 public；一般 commit／push 不應自動修改可見度。
 
 這是一份可重複執行的風險檢查程序，不是無漏洞證明。需要更高保證時，應安排獨立安全審查與持續維護。
+
+## 選用桌面原型
+
+`skillpane/desktop.py` 管理自有 loopback 服務、顯示偏好及非阻塞關閉檢查；`skillpane/desktop_windows.py` 管理 Windows mutex／event 與 WebView2 防護。一般 CLI 不匯入這兩者或第三方 GUI 套件。`scripts/build_desktop.py` 僅收集前端允許清單與依賴資源，所有打包產物留在忽略的 `.runtime/desktop-build/`。
+
+依賴鎖與操作步驟見 [桌面指南](DESKTOP.md)。標準 unittest discovery 收錄無 GUI 的 `test_desktop.py`；需隔離桌面環境的原生整合測試另外執行：
+
+```powershell
+.runtime/desktop-build/venv/Scripts/python.exe -B tests/desktop_smoke.py
+```
+
+此測試自行建立合成 home／資料與實際 WebView2 視窗，檢查 DOM 操作、草稿關閉、單一實例、原生導向攔截及 JSON Blob 下載。它使用應用程式內的程式呼叫，沒有模擬真人滑鼠／鍵盤，也不代替人工 IME、剪貼簿或檔案對話框驗收。結果只留在 `.runtime/`，不從 CI 上傳。
